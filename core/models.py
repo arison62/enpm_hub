@@ -138,6 +138,27 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     est_actif = models.BooleanField(default=True, verbose_name=_("Compte actif")) # Remplace is_active
     is_staff = models.BooleanField(default=False, verbose_name=_("Accès admin Django")) # Requis pour l'admin Django
     
+    # Champs Gestion de permissions de Django
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name=_('groups'),
+        blank=True,
+        help_text=_(
+            'The groups this user belongs to. A user will get all permissions '
+            'granted to each of their groups.'
+        ),
+        related_name="custom_user", 
+        related_query_name="user",
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name=_('user permissions'),
+        blank=True,
+        help_text=_('Specific permissions for this user.'),
+        related_name="custom_user", 
+        related_query_name="user",
+    )    
+    
     # Configuration du modèle
     objects = CustomUserManager()
     
