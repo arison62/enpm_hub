@@ -51,6 +51,12 @@ INSTALLED_APPS = [
     "ninja",
     
     "home",
+    "core",
+    "users",
+    "organizations",
+    "opportunities",
+    "chat",
+    "stats",
 ]
 
 MIDDLEWARE = [
