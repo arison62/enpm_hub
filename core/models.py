@@ -177,3 +177,71 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     def is_active(self):
         """Alias pour que Django Admin fonctionne avec notre champ 'est_actif'"""
         return self.est_actif and not self.deleted
+
+# ==========================================
+# 4. MODÈLE JOURNAL D'AUDIT
+# ==========================================
+
+class AuditLog(ENSPMHubBaseModel):
+    """Journal d'audit pour la traçabilité complète des actions."""
+
+    class AuditAction(models.TextChoices):
+        CREATE = 'CREATE', _('Create')
+        UPDATE = 'UPDATE', _('Update')
+        DELETE = 'DELETE', _('Delete')
+        VIEW = 'VIEW', _('View')
+        ACCESS_DENIED = 'ACCESS_DENIED', _('Access denied')
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_logs',
+        verbose_name=_("Utilisateur")
+    )
+    action = models.CharField(
+        max_length=20,
+        choices=AuditAction.choices,
+        verbose_name=_('Action'),
+        db_index=True
+    )
+
+    # Informations sur l'entité concernée
+    entity_type = models.CharField(
+        max_length=100,
+        verbose_name=_('Type d\'entité'),
+        db_index=True
+    )
+    entity_id = models.UUIDField(verbose_name=_('ID de l\'entité'), db_index=True)
+
+    # Détails des changements
+    old_values = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name=_('Anciennes valeurs')
+    )
+    new_values = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name=_('Nouvelles valeurs')
+    )
+
+    # Informations de connexion
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name=_('Adresse IP')
+    )
+    user_agent = models.TextField(
+        blank=True,
+        verbose_name=_('User agent')
+    )
+
+    class Meta:
+        verbose_name = _("Journal d'audit")
+        verbose_name_plural = _("Journaux d'audit")
+        db_table = 'audit_log'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user} - {self.action} on {self.entity_type} ({self.entity_id}) at {self.created_at}"
