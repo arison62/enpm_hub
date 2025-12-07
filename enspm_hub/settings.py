@@ -192,8 +192,8 @@ WHITENOISE_IMMUTABLE_FILE_TEST = immutable_file_test
 # LOGGING CONFIGURATION
 # ==============================================================================
 
-LOG_LEVEL = env.str('LOG_LEVEL', default='INFO').upper()
-LOG_FILE_PATH = env.str('LOG_FILE_PATH', default=None)
+LOG_LEVEL = env.str('LOG_LEVEL', default='INFO').upper() # type: ignore
+LOG_FILE_PATH = env.str('LOG_FILE_PATH', default=None) # type: ignore
 
 # Use a simple, readable formatter for development, and JSON for production.
 formatter = 'simple' if DEBUG else 'json'
