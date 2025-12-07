@@ -1160,4 +1160,76 @@ npm run build
 
 ---
 
+## 🪵 Stratégie de Logging
+
+Un bon logging est crucial pour la maintenance, le débogage et la supervision de l'application.
+
+### Configuration
+
+Le logging est configuré dans `enspm_hub/settings.py` et est conçu pour être flexible :
+
+- **En Développement (`DEBUG=True`)** : Les logs sont affichés dans la console dans un format simple et lisible pour faciliter le débogage.
+- **En Production (`DEBUG=False`)** : Les logs sont formatés en **JSON**. Ce format structuré est idéal pour être ingéré par des outils de supervision comme Graylog, Splunk, ou la stack ELK (Elasticsearch, Logstash, Kibana).
+
+### Comment Logger
+
+Pour ajouter des logs dans le code, utilisez le logger `app` configuré spécifiquement pour notre application.
+
+**1. Importez le logger**
+
+Dans n'importe quel fichier de service, vue, ou autre module :
+
+```python
+import logging
+
+logger = logging.getLogger('app')
+```
+
+**2. Utilisez les niveaux de log appropriés**
+
+Chaque niveau a une signification précise :
+
+| Niveau       | Quand l'utiliser                                                                                                     | Exemple                                                              |
+|--------------|----------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `DEBUG`      | Pour des informations de diagnostic très détaillées, utiles uniquement lors du débogage d'un problème spécifique.       | `logger.debug(f"User {user.id} raw data: {raw_data}")`               |
+| `INFO`       | Pour des événements normaux qui tracent le déroulement de l'application. C'est le niveau par défaut.                   | `logger.info(f"User {user.email} logged in successfully.")`           |
+| `WARNING`    | Pour des événements inattendus qui ne sont pas des erreurs, mais qui pourraient indiquer un futur problème.          | `logger.warning(f"API key for service X is expiring in 3 days.")`    |
+| `ERROR`      | Pour des erreurs qui ont empêché une opération de se terminer, mais qui ne mettent pas en péril l'application.        | `logger.error(f"Failed to send email to {user.email}: {e}")`         |
+| `CRITICAL`   | Pour des erreurs très graves qui peuvent entraîner l'arrêt de l'application ou une corruption de données.           | `logger.critical("Database connection lost!")`                       |
+
+**3. Ajouter un contexte structuré**
+
+Pour enrichir les logs JSON, vous pouvez passer un dictionnaire `extra` avec des informations contextuelles. C'est extrêmement utile pour la recherche et l'analyse dans les outils de supervision.
+
+```python
+# Exemple dans un service
+def process_payment(user, amount, request_id):
+    logger.info(
+        "Processing payment.",
+        extra={
+            'user_id': user.id,
+            'amount': amount,
+            'request_id': request_id,
+        }
+    )
+
+    try:
+        # ... logique métier ...
+        logger.info("Payment successful.", extra={'user_id': user.id})
+    except Exception as e:
+        logger.error(
+            "Payment failed.",
+            exc_info=True,  # Ajoute automatiquement le traceback de l'exception
+            extra={
+                'user_id': user.id,
+                'amount': amount,
+                'request_id': request_id,
+            }
+        )
+```
+
+En suivant ces conventions, nous nous assurons que les logs de l'application sont cohérents, utiles, et prêts pour une supervision efficace en production.
+
+---
+
 **🎉 Vous êtes prêt à contribuer au projet ENSPM Hub !**
