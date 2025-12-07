@@ -26,6 +26,7 @@ erDiagram
         varchar nom_complet
         varchar matricule UK
         varchar email UK
+        varchar titre
         varchar mot_de_passe_hash
         enum statut "etudiant, enseignant, directeur, personnel_admin, personnel_technique"
         boolean travailleur
