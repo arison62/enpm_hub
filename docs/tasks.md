@@ -2173,3 +2173,1476 @@ Lier des utilisateurs aux organisations
 ## Labels
 `epic:organisations` `priority:P2` `type:frontend` `sprint:6`
 ```
+## 🏗️ EPIC 7 - SYSTÈME DE CHAT
+
+### Issue #21 - Modèle Groupe (Backend)
+```markdown
+## Description
+Créer le modèle pour les groupes de chat
+
+## Objectif
+Gérer les espaces de discussion
+
+## Dépendances
+- [ ] #2
+
+## Critères d'acceptation
+- [ ] Modèle Groupe créé avec tous les champs
+- [ ] ENUM type_groupe définis
+- [ ] Migrations appliquées
+- [ ] Tests passent
+
+## Tâches techniques
+- [ ] Créer app `chat`
+- [ ] Créer modèle Groupe :
+```python
+class Groupe(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    createur = models.ForeignKey(User, on_delete=models.CASCADE, related_name='groupes_crees')
+    nom_groupe = models.CharField(max_length=100, unique=True)
+    photo_groupe_url = models.TextField(null=True, blank=True)
+    description = models.TextField()
+    est_valide = models.BooleanField(default=False)
+    type_groupe = models.CharField(max_length=20, choices=TYPE_GROUPE_CHOICES)
+    max_membres = models.IntegerField(default=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+```
+- [ ] Définir ENUM (type_groupe: public, prive, administratif)
+- [ ] Créer migrations
+- [ ] Ajouter index
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #22 - Modèle MembreGroupe (Backend)
+```markdown
+## Description
+Table de liaison Utilisateur-Groupe avec rôles
+
+## Objectif
+Gérer les membres des groupes
+
+## Dépendances
+- [ ] #2
+- [ ] #21
+
+## Critères d'acceptation
+- [ ] Modèle MembreGroupe créé
+- [ ] Contrainte unicité membre actif implémentée
+- [ ] Signal ajout créateur comme admin
+- [ ] Tests passent
+
+## Tâches techniques
+- [ ] Créer modèle MembreGroupe :
+```python
+class MembreGroupe(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE)
+    groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE)
+    role_membre = models.CharField(max_length=20, choices=ROLE_MEMBRE_CHOICES, default='membre')
+    date_adhesion = models.DateTimeField(auto_now_add=True)
+    date_sortie = models.DateTimeField(null=True, blank=True)
+    est_actif = models.BooleanField(default=True)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['utilisateur', 'groupe'],
+                condition=models.Q(est_actif=True),
+                name='unique_membre_actif_par_groupe'
+            )
+        ]
+```
+- [ ] Définir ENUM (role_membre: membre, moderateur, admin)
+- [ ] Créer signal post_save pour ajouter créateur comme admin
+- [ ] Créer migrations
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #23 - Modèle Message (Backend)
+```markdown
+## Description
+Créer le modèle pour les messages de chat
+
+## Objectif
+Stocker les messages des groupes
+
+## Dépendances
+- [ ] #2
+- [ ] #21
+
+## Critères d'acceptation
+- [ ] Modèle Message créé
+- [ ] Contrainte CHECK (texte OU fichier)
+- [ ] Signal calcul date_suppression_auto
+- [ ] Index créés
+- [ ] Tests passent
+
+## Tâches techniques
+- [ ] Créer modèle Message :
+```python
+class Message(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='messages')
+    utilisateur = models.ForeignKey(User, on_delete=models.CASCADE)
+    texte = models.TextField(null=True, blank=True)
+    fichier_url = models.TextField(null=True, blank=True)
+    type_fichier = models.CharField(max_length=20, choices=TYPE_FICHIER_CHOICES, null=True)
+    est_supprime = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    date_suppression_auto = models.DateTimeField()
+    
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(texte__isnull=False) | models.Q(fichier_url__isnull=False),
+                name='message_contenu_requis'
+            )
+        ]
+```
+- [ ] Définir ENUM type_fichier
+- [ ] Créer signal pre_save pour calculer date_suppression_auto (6 mois)
+- [ ] Créer migrations
+- [ ] Ajouter index (groupe, created_at DESC)
+- [ ] Tester
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #24 - Job de suppression automatique des messages
+```markdown
+## Description
+Créer un job Django Cron pour supprimer les vieux messages
+
+## Objectif
+Libérer de l'espace disque automatiquement
+
+## Dépendances
+- [ ] #23
+
+## Critères d'acceptation
+- [ ] Job créé et configuré
+- [ ] Messages expirés supprimés quotidiennement
+- [ ] Logging implémenté
+- [ ] Test manuel réussi
+
+## Tâches techniques
+- [ ] Installer `django-crontab`
+- [ ] Créer `chat/cron/delete_old_messages.py` :
+```python
+from django.utils import timezone
+from chat.models import Message
+
+def delete_old_messages():
+    now = timezone.now()
+    deleted_count = Message.objects.filter(
+        date_suppression_auto__lt=now
+    ).delete()[0]
+    
+    print(f"Supprimé {deleted_count} messages expirés")
+```
+- [ ] Configurer dans settings.py :
+```python
+CRONJOBS = [
+    ('0 3 * * *', 'chat.cron.delete_old_messages.delete_old_messages'),  # 3h du matin
+]
+```
+- [ ] Ajouter logging
+- [ ] Tester manuellement
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P2` `type:backend` `sprint:7`
+```
+
+### Issue #59 - API CRUD Groupe - Liste & Détail
+```markdown
+## Description
+Endpoints pour lister et voir les groupes
+
+## Objectif
+Permettre de découvrir les groupes disponibles
+
+## Dépendances
+- [ ] #21
+
+## Critères d'acceptation
+- [ ] GET `/api/groupes/` (groupes de l'utilisateur)
+- [ ] GET `/api/groupes/publics/` (groupes publics)
+- [ ] GET `/api/groupes/{uuid}/` fonctionnel
+- [ ] RLS appliqué
+
+## Tâches techniques
+- [ ] Créer `chat/api/schemas.py` avec GroupeOutSchema
+- [ ] Créer `chat/api/views.py` avec router :
+```python
+groupes_router = Router(tags=["Groupes"])
+
+@groupes_router.get("/", auth=django_auth, response=List[GroupeOutSchema])
+def list_groupes(request):
+    # Groupes dont l'utilisateur est membre actif
+    return Groupe.objects.filter(
+        membregroupe__utilisateur=request.user,
+        membregroupe__est_actif=True
+    ).distinct()
+
+@groupes_router.get("/publics/", auth=django_auth, response=List[GroupeOutSchema])
+def list_groupes_publics(request):
+    return Groupe.objects.filter(type_groupe='public', est_valide=True)
+
+@groupes_router.get("/{groupe_id}", auth=django_auth, response=GroupeOutSchema)
+def get_groupe(request, groupe_id: UUID):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    # Vérifier que user est membre ou que groupe est public
+    return groupe
+```
+- [ ] Enregistrer router
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #60 - API Création de Groupe
+```markdown
+## Description
+Endpoint pour créer un nouveau groupe
+
+## Objectif
+Permettre aux utilisateurs de créer des espaces de discussion
+
+## Dépendances
+- [ ] #21
+
+## Critères d'acceptation
+- [ ] POST `/api/groupes/` fonctionnel
+- [ ] Validation unicité nom
+- [ ] Si privé, `est_valide=False`
+- [ ] Créateur ajouté comme admin automatiquement
+
+## Tâches techniques
+- [ ] Créer GroupeCreateSchema :
+```python
+class GroupeCreateSchema(BaseModel):
+    nom_groupe: str = Field(..., min_length=3, max_length=100)
+    photo_groupe_url: Optional[str] = None
+    description: str
+    type_groupe: str = Field(..., pattern="^(public|prive|administratif)$")
+    max_membres: int = Field(default=500, ge=2, le=1000)
+```
+- [ ] Implémenter endpoint :
+```python
+@groupes_router.post("/", auth=django_auth, response={201: GroupeOutSchema, 400: MessageSchema})
+def create_groupe(request, payload: GroupeCreateSchema):
+    if Groupe.objects.filter(nom_groupe=payload.nom_groupe).exists():
+        return 400, {"message": "Ce nom de groupe existe déjà", "success": False}
+    
+    current_user = get_current_user(request)
+    
+    # Vérifier permissions pour type administratif
+    if payload.type_groupe == 'administratif' and current_user.role not in ['admin', 'super_admin']:
+        return 400, {"message": "Seuls les admins peuvent créer des groupes administratifs", "success": False}
+    
+    # Déterminer si validation requise
+    est_valide = payload.type_groupe == 'public'
+    
+    groupe = Groupe.objects.create(
+        **payload.dict(),
+        createur=current_user,
+        est_valide=est_valide
+    )
+    
+    # Ajouter créateur comme admin (fait par signal)
+    
+    if not est_valide:
+        # Notifier admins pour validation
+        pass
+    
+    return 201, groupe
+```
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #61 - API Validation des Groupes Privés
+```markdown
+## Description
+Endpoint pour valider/invalider un groupe privé
+
+## Objectif
+Contrôler les groupes créés par les utilisateurs
+
+## Dépendances
+- [ ] #60
+
+## Critères d'acceptation
+- [ ] POST `/api/groupes/{uuid}/validate/` fonctionnel
+- [ ] Modèle ValidationGroupe créé
+- [ ] Email envoyé au créateur
+- [ ] Permission admin vérifiée
+
+## Tâches techniques
+- [ ] Créer modèle ValidationGroupe (similaire à ValidationFormation)
+- [ ] Créer endpoint validate_groupe
+- [ ] Implémenter service email
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #62 - API Gestion des Membres de Groupe
+```markdown
+## Description
+Endpoints pour ajouter/retirer des membres
+
+## Objectif
+Gérer l'appartenance aux groupes
+
+## Dépendances
+- [ ] #22
+
+## Critères d'acceptation
+- [ ] GET `/api/groupes/{uuid}/membres/` fonctionnel
+- [ ] POST `/api/groupes/{uuid}/join/` fonctionnel
+- [ ] POST `/api/groupes/{uuid}/leave/` fonctionnel
+- [ ] POST `/api/groupes/{uuid}/add-membre/` (admin groupe)
+- [ ] DELETE `/api/groupes/{uuid}/remove-membre/{user_id}/` (admin)
+- [ ] Vérification max_membres
+
+## Tâches techniques
+- [ ] Créer MembreGroupeSchema
+- [ ] Implémenter tous les endpoints :
+```python
+@groupes_router.get("/{groupe_id}/membres/", auth=django_auth, response=List[MembreGroupeOutSchema])
+def list_membres(request, groupe_id: UUID):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    return MembreGroupe.objects.filter(groupe=groupe, est_actif=True).select_related('utilisateur')
+
+@groupes_router.post("/{groupe_id}/join/", auth=django_auth, response={200: MessageSchema, 400: MessageSchema})
+def join_groupe(request, groupe_id: UUID):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    user = get_current_user(request)
+    
+    # Vérifier type groupe
+    if groupe.type_groupe == 'prive' and not groupe.est_valide:
+        return 400, {"message": "Ce groupe n'est pas encore validé", "success": False}
+    
+    # Vérifier max_membres
+    if MembreGroupe.objects.filter(groupe=groupe, est_actif=True).count() >= groupe.max_membres:
+        return 400, {"message": "Le groupe est complet", "success": False}
+    
+    # Créer membre
+    MembreGroupe.objects.get_or_create(
+        utilisateur=user,
+        groupe=groupe,
+        defaults={'role_membre': 'membre', 'est_actif': True}
+    )
+    
+    return {"message": f"Vous avez rejoint le groupe {groupe.nom_groupe}"}
+
+@groupes_router.post("/{groupe_id}/leave/", auth=django_auth, response=MessageSchema)
+def leave_groupe(request, groupe_id: UUID):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    user = get_current_user(request)
+    
+    membre = get_object_or_404(MembreGroupe, utilisateur=user, groupe=groupe, est_actif=True)
+    
+    # Ne pas permettre au créateur de quitter
+    if groupe.createur == user:
+        raise PermissionError("Le créateur ne peut pas quitter le groupe")
+    
+    membre.est_actif = False
+    membre.date_sortie = timezone.now()
+    membre.save()
+    
+    return {"message": "Vous avez quitté le groupe"}
+```
+- [ ] Tester tous les cas
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:chat` `priority:P0` `type:backend` `sprint:7`
+```
+
+### Issue #63 - API Messages - Liste & Création
+```markdown
+## Description
+Endpoints pour les messages d'un groupe
+
+## Objectif
+Permettre de lire et poster des messages
+
+## Dépendances
+- [ ] #23
+- [ ] #22
+
+## Critères d'acceptation
+- [ ] GET `/api/groupes/{uuid}/messages/` fonctionnel
+- [ ] POST `/api/groupes/{uuid}/messages/` fonctionnel
+- [ ] DELETE `/api/messages/{uuid}/` fonctionnel
+- [ ] Pagination inversée (50 derniers)
+- [ ] Vérification appartenance au groupe
+
+## Tâches techniques
+- [ ] Créer MessageSchema
+- [ ] Implémenter endpoints :
+```python
+messages_router = Router(tags=["Messages"])
+
+@messages_router.get("/{groupe_id}/messages/", auth=django_auth, response=List[MessageOutSchema])
+@paginate(PageNumberPagination, page_size=50)
+def list_messages(request, groupe_id: UUID):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    user = get_current_user(request)
+    
+    # Vérifier que user est membre
+    if not MembreGroupe.objects.filter(groupe=groupe, utilisateur=user, est_actif=True).exists():
+        raise PermissionError("Vous n'êtes pas membre de ce groupe")
+    
+    return Message.objects.filter(
+        groupe=groupe,
+        est_supprime=False
+    ).select_related('utilisateur').order_by('-created_at')
+
+@messages_router.post("/{groupe_id}/messages/", auth=django_auth, response={201: MessageOutSchema, 400: MessageSchema})
+def create_message(request, groupe_id: UUID, texte: str = None, fichier_url: str = None):
+    groupe = get_object_or_404(Groupe, id=groupe_id)
+    user = get_current_user(request)
+    
+    # Vérifier membre actif
+    if not MembreGroupe.objects.filter(groupe=groupe, utilisateur=user, est_actif=True).exists():
+        return 400, {"message": "Vous n'êtes pas membre de ce groupe", "success": False}
+    
+    if not texte and not fichier_url:
+        return 400, {"message": "Le message doit contenir du texte ou un fichier", "success": False}
+    
+    # Calculer date_suppression_auto (6 mois)
+    from datetime import timedelta
+    date_suppression = timezone.now() + timedelta(days=180)
+    
+    message = Message.objects.create(
+        groupe=groupe,
+        utilisateur=user,
+        texte=texte,
+        fichier_url=fichier_url,
+        date_suppression_auto=date_suppression
+    )
+    
+    return 201, message
+
+@messages_router.delete("/{message_id}/", auth=django_auth, response=MessageSchema)
+def delete_message(request, message_id: UUID):
+    message = get_object_or_404(Message, id=message_id)
+    user = get_current_user(request)
+    
+    # Vérifier permissions (créateur ou modérateur/admin du groupe)
+    membre = MembreGroupe.objects.filter(
+        groupe=message.groupe,
+        utilisateur=user,
+        est_actif=True
+    ).first()
+    
+    if message.utilisateur != user and membre.role_membre not in ['moderateur', 'admin']:
+        raise PermissionError("Vous ne pouvez supprimer que vos propres messages")
+    
+    message.est_supprime = True
+    message.save()
+    
+    return {"message": "Message supprimé"}
+```
+- [ ] Enregistrer router
+- [ ] Tester
+
+## Estimation
+2 jours
+
+## Labels
+`epic:chat` `priority:P0` `type:backend` `sprint:7`
+```
+
+### Issue #64 - Upload de fichiers pour messages
+```markdown
+## Description
+Service d'upload de fichiers (images, PDF, vidéos)
+
+## Objectif
+Permettre le partage de fichiers dans les messages
+
+## Dépendances
+- [ ] #63
+
+## Critères d'acceptation
+- [ ] Service upload créé
+- [ ] Validation type fichier (whitelist)
+- [ ] Validation taille (max 50 MB)
+- [ ] Stockage configuré (local ou S3)
+- [ ] URL retournée
+
+## Tâches techniques
+- [ ] Configurer stockage dans settings.py
+- [ ] Créer `chat/services/file_upload.py` :
+```python
+from django.core.files.storage import default_storage
+from django.core.exceptions import ValidationError
+import uuid
+import os
+
+ALLOWED_TYPES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'video/mp4', 'video/webm'
+]
+
+MAX_SIZE = 50 * 1024 * 1024  # 50 MB
+
+def upload_message_file(file, groupe_id):
+    # Valider type
+    if file.content_type not in ALLOWED_TYPES:
+        raise ValidationError(f"Type de fichier non autorisé: {file.content_type}")
+    
+    # Valider taille
+    if file.size > MAX_SIZE:
+        raise ValidationError(f"Fichier trop volumineux (max 50 MB)")
+    
+    # Générer nom unique
+    ext = os.path.splitext(file.name)[1]
+    filename = f"chat/{groupe_id}/{uuid.uuid4()}{ext}"
+    
+    # Stocker
+    path = default_storage.save(filename, file)
+    
+    # Retourner URL
+    return default_storage.url(path)
+```
+- [ ] Créer endpoint upload :
+```python
+@messages_router.post("/{groupe_id}/upload/", auth=django_auth)
+def upload_file(request, groupe_id: UUID, file: UploadedFile):
+    try:
+        url = upload_message_file(file, groupe_id)
+        return {"url": url, "filename": file.name}
+    except ValidationError as e:
+        return 400, {"message": str(e), "success": False}
+```
+- [ ] Tester upload différents types
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:backend` `sprint:7`
+```
+
+### Issue #65 - Page Liste des Groupes (Frontend)
+```markdown
+## Description
+Interface pour découvrir et rejoindre des groupes
+
+## Objectif
+Afficher les groupes accessibles
+
+## Dépendances
+- [ ] #59
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Groupes/Index.tsx fonctionnelle
+- [ ] Deux onglets: "Mes groupes" et "Groupes publics"
+- [ ] Composant GroupeCard créé
+- [ ] Bouton "Rejoindre" fonctionnel
+
+## Tâches techniques
+- [ ] Créer `frontend/ts/pages/Groupes/Index.tsx`
+- [ ] Créer `GroupeCard.tsx`
+- [ ] Implémenter onglets avec Shadcn Tabs
+- [ ] Appel API rejoindre groupe
+- [ ] Tester
+
+## Estimation
+2 jours
+
+## Labels
+`epic:chat` `priority:P1` `type:frontend` `sprint:7`
+```
+
+### Issue #66 - Page Chat d'un Groupe (Frontend)
+```markdown
+## Description
+Interface de chat en temps réel
+
+## Objectif
+Permettre d'envoyer et recevoir des messages
+
+## Dépendances
+- [ ] #63
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Groupes/Chat.tsx fonctionnelle
+- [ ] Liste messages (scroll inversé)
+- [ ] Composant MessageBubble
+- [ ] Composant ChatInput
+- [ ] Envoi message fonctionnel
+- [ ] Upload fichier fonctionnel
+- [ ] Polling 3s pour nouveaux messages
+- [ ] Auto-scroll vers le bas
+
+## Tâches techniques
+- [ ] Créer `frontend/ts/pages/Groupes/Chat.tsx` :
+```typescript
+import { useState, useEffect, useRef } from 'react'
+import { router } from '@inertiajs/react'
+import Layout from '@/components/layout/Layout'
+import MessageBubble from '@/components/chat/MessageBubble'
+import ChatInput from '@/components/chat/ChatInput'
+
+interface Message {
+  id: string
+  texte: string
+  fichier_url?: string
+  created_at: string
+  utilisateur: {
+    id: string
+    nom_complet: string
+    photo_profil_url?: string
+  }
+}
+
+interface Props {
+  groupe: {
+    id: string
+    nom_groupe: string
+  }
+  messages: Message[]
+  currentUserId: string
+}
+
+export default function GroupeChat({ groupe, messages: initialMessages, currentUserId }: Props) {
+  const [messages, setMessages] = useState(initialMessages)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // Polling pour nouveaux messages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`/api/groupes/${groupe.id}/messages/`)
+        .then(res => res.json())
+        .then(data => {
+          setMessages(data.items)
+          scrollToBottom()
+        })
+    }, 3000)
+    
+    return () => clearInterval(interval)
+  }, [groupe.id])
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+  
+  const handleSendMessage = (texte: string, fichier?: File) => {
+    // Upload fichier si présent
+    let fichier_url = null
+    if (fichier) {
+      const formData = new FormData()
+      formData.append('file', fichier)
+      
+      fetch(`/api/groupes/${groupe.id}/upload/`, {
+        method: 'POST',
+        body: formData
+      })
+        .then(res => res.json())
+        .then(data => {
+          fichier_url = data.url
+          sendMessage(texte, fichier_url)
+        })
+    } else {
+      sendMessage(texte, null)
+    }
+  }
+  
+  const sendMessage = (texte: string, fichier_url: string | null) => {
+    fetch(`/api/groupes/${groupe.id}/messages/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texte, fichier_url })
+    })
+      .then(res => res.json())
+      .then(newMessage => {
+        setMessages([...messages, newMessage])
+        scrollToBottom()
+      })
+  }
+  
+  return (
+    <Layout>
+      <div className="flex flex-col h-screen">
+        <div className="bg-white shadow p-4">
+          <h1 className="text-2xl font-bold">{groupe.nom_groupe}</h1>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map(message => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isOwn={message.utilisateur.id === currentUserId}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        
+        <ChatInput onSend={handleSendMessage} />
+      </div>
+    </Layout>
+  )
+}
+```
+- [ ] Créer `MessageBubble.tsx`
+- [ ] Créer `ChatInput.tsx`
+- [ ] Tester
+
+## Estimation
+3 jours
+
+## Labels
+`epic:chat` `priority:P0` `type:frontend` `sprint:7`
+```
+
+### Issue #67 - Formulaire Création de Groupe (Frontend)
+```markdown
+## Description
+Interface pour créer un nouveau groupe
+
+## Objectif
+Permettre aux utilisateurs de créer des espaces
+
+## Dépendances
+- [ ] #60
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Create.tsx fonctionnelle
+- [ ] Formulaire avec validation
+- [ ] Avertissement si privé
+- [ ] Redirection après création
+
+## Tâches techniques
+- [ ] Créer `frontend/ts/pages/Groupes/Create.tsx`
+- [ ] Créer schéma Zod
+- [ ] Implémenter formulaire
+- [ ] Gérer type_groupe (select)
+- [ ] Avertissement validation pour privé
+- [ ] Tester
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:chat` `priority:P1` `type:frontend` `sprint:7`
+```
+
+### Issue #68 - Interface Admin Validation des Groupes (Frontend)
+```markdown
+## Description
+Page admin pour valider les groupes privés
+
+## Objectif
+Contrôler les groupes créés par les utilisateurs
+
+## Dépendances
+- [ ] #61
+
+## Critères d'acceptation
+- [ ] Page Admin/GroupesEnAttente.tsx fonctionnelle
+- [ ] Liste groupes `est_valide=False`
+- [ ] Modal validation
+- [ ] Boutons Approuver/Rejeter
+
+## Tâches techniques
+- [ ] Créer Admin/GroupesEnAttente.tsx
+- [ ] Réutiliser ValidationModal
+- [ ] Appeler API validation
+- [ ] Tester
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:chat` `priority:P2` `type:frontend` `sprint:7`
+```
+
+---
+
+## 🏗️ EPIC 8 - STATISTIQUES & TABLEAUX DE BORD
+
+### Issue #72 - Vue matérialisée PostgreSQL pour statistiques
+```markdown
+## Description
+Créer une vue matérialisée pour les stats d'emploi
+
+## Objectif
+Performance optimale pour les statistiques
+
+## Dépendances
+- [ ] #2
+
+## Critères d'acceptation
+- [ ] Vue `stats_emploi_par_annee` créée
+- [ ] Index unique créé
+- [ ] Job rafraîchissement quotidien configuré
+- [ ] Tests de requête réussis
+
+## Tâches techniques
+- [ ] Créer migration avec RunSQL :
+```python
+from django.db import migrations
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('core', '0002_user_model'),
+    ]
+    
+    operations = [
+        migrations.RunSQL(
+            sql="""
+            CREATE MATERIALIZED VIEW stats_emploi_par_annee AS
+            SELECT
+                annee_sortie,
+                COUNT(*) as total_diplomes,
+                COUNT(*) FILTER (WHERE travailleur = TRUE) as nb_travaillent,
+                COUNT(*) FILTER (WHERE travailleur = FALSE) as nb_recherche,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE travailleur = TRUE) / COUNT(*), 2) as taux_emploi
+            FROM core_user
+            WHERE statut = 'etudiant' AND annee_sortie IS NOT NULL AND est_actif = TRUE
+            GROUP BY annee_sortie
+            ORDER BY annee_sortie DESC;
+            
+            CREATE UNIQUE INDEX ON stats_emploi_par_annee (annee_sortie);
+            """,
+            reverse_sql="DROP MATERIALIZED VIEW IF EXISTS stats_emploi_par_annee;"
+        )
+    ]
+```
+- [ ] Créer modèle Django (managed=False)
+- [ ] Créer job cron rafraîchissement
+- [ ]Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:statistiques` `priority:P1` `type:backend` `sprint:9`
+```
+
+### Issue #73 - API Statistiques d'Emploi
+```markdown
+## Description
+Endpoints pour consulter les statistiques
+
+## Objectif
+Fournir les données au frontend
+
+## Dépendances
+- [ ] #72
+
+## Critères d'acceptation
+- [ ] GET `/api/statistiques/emploi/` fonctionnel
+- [ ] Filtres (année, plage, liste) implémentés
+- [ ] Cache 5 minutes actif
+- [ ] Permission admin/personnel vérifiée
+
+## Tâches techniques
+- [ ] Créer app `statistics`
+- [ ] Créer `statistics/api/views.py` :
+```python
+from django.core.cache import cache
+
+stats_router = Router(tags=["Statistiques"])
+
+@stats_router.get("/emploi/", auth=django_auth, response=List[StatsEmploiSchema])
+@require_role(['admin', 'super_admin', 'personnel_admin'])
+def get_emploi_stats(
+    request,
+    annee: int = None,
+    annee_min: int = None,
+    annee_max: int = None,
+    annees: str = None  # "2017,2021,2025"
+):
+    cache_key = f"stats_emploi_{annee}_{annee_min}_{annee_max}_{annees}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+    
+    # Requête sur vue matérialisée
+    from statistics.models import StatsEmploiParAnnee
+    
+    queryset = StatsEmploiParAnnee.objects.all()
+    
+    if annee:
+        queryset = queryset.filter(annee_sortie=annee)
+    elif annee_min and annee_max:
+        queryset = queryset.filter(annee_sortie__gte=annee_min, annee_sortie__lte=annee_max)
+    elif annees:
+        annee_list = [int(a) for a in annees.split(',')]
+        queryset = queryset.filter(annee_sortie__in=annee_list)
+    
+    result = list(queryset)
+    cache.set(cache_key, result, 300)  # 5 minutes
+    
+    return result
+```
+- [ ] Enregistrer router
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:statistiques` `priority:P1` `type:backend` `sprint:9`
+```
+
+### Issue #74 - Page Statistiques d'Emploi (Frontend)
+```markdown
+## Description
+Interface pour visualiser les statistiques
+
+## Objectif
+Afficher les taux d'emploi de manière claire
+
+## Dépendances
+- [ ] #73
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Statistiques/Emploi.tsx fonctionnelle
+- [ ] Graphique en barres (recharts)
+- [ ] Tableau détaillé
+- [ ] Filtres (années, plages)
+- [ ] Export CSV/PDF
+
+## Tâches techniques
+- [ ] Installer `recharts` : `npm install recharts`
+- [ ] Créer `frontend/ts/pages/Statistiques/Emploi.tsx`
+- [ ] Implémenter graphique BarChart
+- [ ] Implémenter tableau avec Shadcn Table
+- [ ] Créer formulaire filtres
+- [ ] Implémenter export CSV
+- [ ] Tester
+
+## Estimation
+2 jours
+
+## Labels
+`epic:statistiques` `priority:P1` `type:frontend` `sprint:9`
+```
+
+### Issue #75 - Dashboard Principal (Frontend)
+```markdown
+## Description
+Page d'accueil avec KPIs et statistiques générales
+
+## Objectif
+Vue d'ensemble de la plateforme
+
+## Dépendances
+- [ ] #73
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Dashboard.tsx fonctionnelle
+- [ ] KPIs affichés (utilisateurs, offres, groupes, taux emploi)
+- [ ] Graphiques (évolution inscriptions)
+- [ ] Dernières offres affichées
+
+## Tâches techniques
+- [ ] Créer `frontend/ts/pages/Dashboard.tsx`
+- [ ] Créer composant `StatCard.tsx`
+- [ ] Fetch données depuis multiples endpoints
+- [ ] Afficher KPIs
+- [ ] Ajouter graphiques recharts
+- [ ] Tester
+
+## Estimation
+3 jours
+
+## Labels
+`epic:statistiques` `priority:P2` `type:frontend` `sprint:9`
+```
+
+---
+
+## 🏗️ EPIC 9 - ADMINISTRATION
+
+### Issue #76 - API Liste & Recherche Utilisateurs (Admin)
+```markdown
+## Description
+Endpoint pour lister tous les utilisateurs (admin uniquement)
+
+## Objectif
+Permettre la gestion des comptes
+
+## Dépendances
+- [ ] #2
+- [ ] #7
+
+## Critères d'acceptation
+- [ ] GET `/api/users/` fonctionnel (déjà fait en #7 mais à améliorer)
+- [ ] Filtres avancés
+- [ ] Recherche full-text
+- [ ] Pagination 50 par page
+
+## Tâches techniques
+- [ ] Améliorer endpoint existant si nécessaire
+- [ ] Ajouter recherche full-text (nom, email, matricule)
+- [ ] Optimiser avec select_related
+- [ ] Tester
+
+## Estimation
+1 jour
+
+## Labels
+`epic:admin` `priority:P1` `type:backend` `sprint:10`
+```
+
+### Issue #77 - API Modification Utilisateur (Admin)
+```markdown
+## Description
+Endpoint pour modifier un utilisateur (déjà fait en #7)
+
+## Objectif
+Permettre aux admins de gérer les comptes
+
+## Dépendances
+- [ ] #7
+
+## Critères d'acceptation
+- [ ] Endpoint fonctionnel
+- [ ] Changement de rôle possible
+- [ ] Activation/désactivation possible
+
+## Tâches techniques
+- [ ] Vérifier endpoint existant
+- [ ] Compléter si nécessaire
+- [ ] Tester
+
+## Estimation
+0.5 jour
+
+## Labels
+`epic:admin` `priority:P1` `type:backend` `sprint:10`
+```
+
+### Issue #78 - API Suppression Utilisateur (Soft Delete)
+```markdown
+## Description
+Désactiver un compte utilisateur (déjà fait en #7)
+
+## Objectif
+Soft delete pour préserver l'intégrité
+
+## Dépendances
+- [ ] #7
+
+## Critères d'acceptation
+- [ ] Endpoint fonctionnel
+- [ ] Sessions invalidées
+
+## Tâches techniques
+- [ ] Vérifier endpoint existant
+- [ ] Invalider sessions Django
+- [ ] Tester
+
+## Estimation
+0.5 jour
+
+## Labels
+`epic:admin` `priority:P2` `type:backend` `sprint:10`
+```
+
+### Issue #79 - Page Admin - Liste Utilisateurs (Frontend)
+```markdown
+## Description
+Interface de gestion des utilisateurs
+
+## Objectif
+Permettre aux admins de voir et gérer les comptes
+
+## Dépendances
+- [ ] #76
+- [ ] #11
+
+## Critères d'acceptation
+- [ ] Page Admin/Users/Index.tsx fonctionnelle
+- [ ] Tableau avec colonnes complètes
+- [ ] Filtres et recherche
+- [ ] Actions CRUD
+- [ ] Pagination
+
+## Tâches techniques
+- [ ] Créer `frontend/ts/pages/Admin/Users/Index.tsx`
+- [ ] Implémenter tableau Shadcn DataTable
+- [ ] Ajouter filtres (statut, travailleur, année)
+- [ ] Barre de recherche
+- [ ] Boutons actions
+- [ ] Pagination
+- [ ] Tester
+
+## Estimation
+2 jours
+
+## Labels
+`epic:admin` `priority:P1` `type:frontend` `sprint:10`
+```
+
+### Issue #80 - Page Admin - Modifier Utilisateur (Frontend)
+```markdown
+## Description
+Formulaire de modification utilisateur
+
+## Objectif
+Permettre l'édition des comptes
+
+## Dépendances
+- [ ] #77
+- [ ] #79
+
+## Critères d'acceptation
+- [ ] Page Edit.tsx fonctionnelle
+- [ ] Champ travailleur grisé
+- [ ] Changement rôle possible
+- [ ] Toggle est_actif
+
+## Tâches techniques
+- [ ] Créer Admin/Users/Edit.tsx
+- [ ] Formulaire avec tous les champs
+- [ ] Désactiver champ travailleur
+- [ ] Dropdown rôle
+- [ ] Switch est_actif
+- [ ] Tester
+
+## Estimation
+1.5 jour
+
+## Labels
+`epic:admin` `priority:P1` `type:frontend` `sprint:10`
+```
+
+### Issue #81 - Page Admin - Logs d'Audit (Frontend)
+```markdown
+## Description
+Interface pour consulter les logs
+
+## Objectif
+Traçabilité des actions
+
+## Dépendances
+- [ ] #9
+
+## Critères d'acceptation
+- [ ] Page Admin/AuditLogs.tsx fonctionnelle
+- [ ] Table logs
+- [ ] Filtres (utilisateur, table, action, date)
+- [ ] Modal voir détails JSON
+
+## Tâches techniques
+- [ ] Créer endpoint API GET `/api/audit-logs/`
+- [ ] Créer Admin/AuditLogs.tsx
+- [ ] Tableau avec colonnes
+- [ ] Filtres
+- [ ] Modal JSON viewer
+- [ ] Pagination
+- [ ] Tester
+
+## Estimation
+2 jours
+
+## Labels
+`epic:admin` `priority:P2` `type:frontend` `sprint:10`
+```
+
+---
+
+## 🏗️ EPIC 10 - SÉCURITÉ & OPTIMISATIONS
+
+### Issue #82 - Configuration HTTPS & SSL
+```markdown
+## Description
+Configurer le certificat SSL pour l'application
+
+## Objectif
+Sécuriser les communications
+
+## Dépendances
+- [ ] Configuration serveur
+
+## Critères d'acceptation
+- [ ] Certificat SSL obtenu (Let's Encrypt)
+- [ ] Nginx configuré avec SSL
+- [ ] Redirection HTTPS forcée
+- [ ] HSTS configuré
+- [ ] Test SSL Labs A+
+
+## Tâches techniques
+- [ ] Obtenir certificat SSL avec Certbot
+- [ ] Configurer Nginx avec SSL
+- [ ] Configurer Django settings :
+```python
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000  # 1 an
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+```
+- [ ] Tester accès HTTPS
+- [ ] Vérifier sur SSL Labs
+
+## Estimation
+0.5 jour
+
+## Labels
+`epic:securite` `priority:P0` `type:devops` `sprint:11`
+```
+
+### Issue #83 - Protection CSRF & XSS
+```markdown
+## Description
+Configurer les protections Django
+
+## Objectif
+Protéger contre les attaques courantes
+
+## Dépendances
+- [ ] #1
+
+## Critères d'acceptation
+- [ ] CSRF activé
+- [ ] Cookies sécurisés
+- [ ] Headers sécurité configurés
+- [ ] Tests de sécurité passent
+
+## Tâches techniques
+- [ ] Vérifier `CSRF_COOKIE_SECURE=True`
+- [ ] Vérifier `SESSION_COOKIE_SECURE=True`
+- [ ] Configurer `X-Frame-Options = 'DENY'`
+- [ ] Configurer `SECURE_CONTENT_TYPE_NOSNIFF = True`
+- [ ] Configurer `X_CONTENT_SECURITY_POLICY`
+- [ ] Tester protections
+
+## Estimation
+0.5 jour
+
+## Labels
+`epic:securite` `priority:P0` `type:backend` `sprint:11`
+```
+
+### Issue #84 - Rate Limiting
+```markdown
+## Description
+Implémenter un rate limiting sur les APIs
+
+## Objectif
+Protéger contre les abus
+
+## Dépendances
+- [ ] API endpoints
+
+## Critères d'acceptation
+- [ ] Rate limiting configuré
+- [ ] Login limité à 5 tentatives/minute
+- [ ] API limitée à 100 req/minute/user
+- [ ] Erreur 429 avec Retry-After
+
+## Tâches techniques
+- [ ] Installer `django-ratelimit`
+- [ ] Configurer throttling :
+```python
+from django_ratelimit.decorators import ratelimit
+
+@ratelimit(key='ip', rate='5/m', method='POST')
+def login_view(request):
+    ...
+
+# Pour Django Ninja
+from ninja import NinjaAPI
+from django.core.cache import cache
+
+def rate_limit_middleware(get_response):
+    def middleware(request):
+        # Implémenter rate limiting
+        pass
+    return middleware
+```
+- [ ] Tester rate limiting
+- [ ] Vérifier erreur 429
+
+## Estimation
+1 jour
+
+## Labels
+`epic:securite` `priority:P1` `type:backend` `sprint:11`
+```
+
+### Issue #85 - Configuration Cache Redis
+```markdown
+## Description
+Configurer Redis pour le caching
+
+## Objectif
+Améliorer les performances
+
+## Dépendances
+- [ ] Infrastructure
+
+## Critères d'acceptation
+- [ ] Redis installé et configuré
+- [ ] Cache Django fonctionnel
+- [ ] Vues statiques cachées
+- [ ] Statistiques cachées (5 min)
+- [ ] Listes offres cachées (1 min)
+
+## Tâches techniques
+- [ ] Installer Redis
+- [ ] Configurer dans settings.py :
+```python
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+```
+- [ ] Utiliser `@cache_page` sur vues statiques
+- [ ] Cacher API statistiques
+- [ ] Cacher listes offres
+- [ ] Tester cache
+
+## Estimation
+1 jour
+
+## Labels
+`epic:performance` `priority:P2` `type:backend` `sprint:11`
+```
+
+### Issue #86 - Optimisation des Requêtes DB
+```markdown
+## Description
+Ajouter `select_related` et `prefetch_related`
+
+## Objectif
+Réduire les N+1 queries
+
+## Dépendances
+- [ ] Tous les endpoints
+
+## Critères d'acceptation
+- [ ] Audit Django Debug Toolbar réalisé
+- [ ] N+1 queries identifiées et corrigées
+- [ ] Gains de performance mesurés
+- [ ] Documentation des optimisations
+
+## Tâches techniques
+- [ ] Installer Django Debug Toolbar
+- [ ] Auditer toutes les vues
+- [ ] Identifier N+1 queries
+- [ ] Ajouter `select_related` pour ForeignKey
+- [ ] Ajouter `prefetch_related` pour M2M
+- [ ] Exemples :
+```python
+# Avant
+stages = Stage.objects.all()
+for stage in stages:
+    print(stage.createur.nom_complet)  # N+1 query
+
+# Après
+stages = Stage.objects.select_related('createur', 'organisation').all()
+for stage in stages:
+    print(stage.createur.nom_complet)  # 1 query
+```
+- [ ] Mesurer gains
+- [ ] Documenter
+
+## Estimation
+2 jours
+
+## Labels
+`epic:performance` `priority:P1` `type:backend` `sprint:11`
+```
+
+### Issue #87 - Compression & Minification Assets
+```markdown
+## Description
+Optimiser les fichiers statiques
+
+## Objectif
+Réduire le temps de chargement
+
+## Dépendances
+- [ ] #10
+
+## Critères d'acceptation
+- [ ] Minification Vite en production
+- [ ] Compression Gzip/Brotli active
+- [ ] Images optimisées (WebP)
+- [ ] Lazy load composants React
+- [ ] Score Lighthouse > 90
+
+## Tâches techniques
+- [ ] Configurer Vite pour production
+- [ ] Activer compression Nginx :
+```nginx
+gzip on;
+gzip_types text/css application/javascript application/json;
+brotli on;
+brotli_types text/css application/javascript application/json;
+```
+- [ ] Optimiser images
+- [ ] Lazy load React :
+```typescript
+const LazyComponent = lazy(() => import('./Component'))
+```
+- [ ] Tester Lighthouse
+
+## Estimation
+1 jour
+
+## Labels
+`epic:performance` `priority:P2` `type:frontend+devops` `sprint:11`
+```
