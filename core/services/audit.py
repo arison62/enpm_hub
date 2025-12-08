@@ -72,3 +72,6 @@ class AuditLogService:
             f"Audit log created: User {user.id} performed {action} on {entity_type} {entity_id}"
         )
         return audit_log
+
+# Instance unique du service pour une utilisation globale
+audit_log_service = AuditLogService()

@@ -126,7 +126,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# SÉCURITÉ & AUTHENTIFICATION
 AUTH_USER_MODEL = 'core.User'
+AUTHENTICATION_BACKENDS = [
+    'core.backends.EmailMatriculeAuthBackend',  # Notre backend personnalisé
+]
+
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
