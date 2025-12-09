@@ -2,8 +2,11 @@ from ninja import Router
 from django.http import HttpRequest
 from core.services.auth_service import AuthService, jwt_auth
 from django.views.decorators.csrf import csrf_exempt
-from core.api.schemas import LoginSchema, TokenSchema, UserSchema
+from core.api.schemas import LoginSchema, TokenSchema, UserSchema, RefreshTokenSchema
 from ninja.security import django_auth
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from ninja.errors import HttpError
 
 # Création du Router
 auth_router = Router(tags=["Authentification"])
@@ -41,6 +44,51 @@ def logout_endpoint(request: HttpRequest):
     AuthService.logout_user(request)
     
     return 204, None # 204 No Content
+
+@auth_router.post(
+    "/refresh",
+    response={200: TokenSchema, 401: dict},
+    summary="Rafraîchit un token JWT"
+)
+def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
+    """
+    Accepte un refresh token valide et retourne une nouvelle paire
+    de tokens (access et refresh), implémentant ainsi la rotation.
+    """
+    try:
+        refresh = RefreshToken(payload.refresh)
+
+        # La rotation est gérée automatiquement si `ROTATE_REFRESH_TOKENS` est à True.
+        # Le simple fait d'accéder à `refresh.access_token` peut suffire si
+        # la rotation est la seule chose que l'on souhaite.
+        # Pour être explicite et clair, nous allons créer les nouveaux tokens.
+
+        new_access_token = str(refresh.access_token)
+        new_refresh_token = str(refresh)
+
+        # Note : Le `user_id` et le `role` sont extraits du token.
+        # simple-jwt ajoute automatiquement ces infos si le User model est standard.
+        # Pour notre modèle custom, vérifions que les claims sont bien là.
+        user_id = refresh.get('user_id')
+
+        # On doit récupérer le rôle depuis la BDD pour être sûr qu'il est à jour.
+        from core.models import User
+        try:
+            user = User.objects.get(id=user_id)
+            role = user.role
+        except User.DoesNotExist:
+            return 401, {"detail": "L'utilisateur associé à ce token n'existe plus."}
+
+        return 200, {
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
+            "user_id": str(user_id),
+            "role": role
+        }
+
+    except TokenError as e:
+        # Le refresh token est invalide, expiré ou a déjà été utilisé
+        return 401, {"detail": f"Token de rafraîchissement invalide ou expiré. {str(e)}"}
 
 @auth_router.get(
     "/me", 

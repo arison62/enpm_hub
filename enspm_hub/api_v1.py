@@ -1,6 +1,7 @@
 from ninja.throttling import AnonRateThrottle, AuthRateThrottle
 from ninja import NinjaAPI
 from core.api.auth import auth_router
+from core.api.users import users_router
 
 
 api_v1 = NinjaAPI(
@@ -15,3 +16,4 @@ api_v1 = NinjaAPI(
 
 # Inclusion des routers
 api_v1.add_router("/auth/", auth_router)
+api_v1.add_router("/users/", users_router)
