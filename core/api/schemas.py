@@ -2,54 +2,56 @@ from typing import Optional
 from ninja import Schema, ModelSchema, Field
 from core.models import User
 
-# Schéma d'entrée pour la connexion
+# ==========================================
+# Schémas d'authentification
+# ==========================================
+
 class LoginSchema(Schema):
     """Schéma d'entrée pour l'authentification (Matricule ou Email)"""
     login_id: str
     password: str
     
-# Schéma de sortie pour le token
 class TokenSchema(Schema):
     """Schéma de sortie après connexion réussie"""
     user_id: str
     access_token: str
     refresh_token: str
-    role: str # Important pour le RBAC côté client
+    role: str  # Important pour le RBAC côté client
     
-# Schéma de sortie pour le token
 class RefreshTokenSchema(Schema):
     """Schéma pour fournir un refresh token."""
     refresh: str
 
-# Schéma de sortie pour l'utilisateur
+# ==========================================
+# Schémas utilisateur
+# ==========================================
+
 class UserSchema(ModelSchema):
-    """Schéma de sortie simple pour un utilisateur (après authentification)"""
+    """Schéma de sortie complet pour un utilisateur"""
     class Meta:
         model = User
-        fields = ('id', 'nom', 'prenom', 'email', 
-                  'matricule', 'bio', 'telephone', 
-                  'travailleur' ,'role', 'statut',
-                  'annee_sortie', 'domaine', 'photo_profile',
-                  'titre', 
-                )
-
-# ==========================================
-# Schémas pour le CRUD Utilisateur
-# ==========================================
+        fields = (
+            'id', 'nom', 'prenom', 'email', 
+            'matricule', 'bio', 'telephone', 
+            'travailleur', 'role', 'statut',
+            'annee_sortie', 'domaine', 'photo_profile',
+            'titre', 'est_actif', 'created_at', 'updated_at'
+        )
 
 class UserCreateSchema(ModelSchema):
     """Schéma pour la création d'un utilisateur."""
     class Meta:
         model = User
-        fields = ['nom', 'prenom', 'email', 'matricule', 'statut', 'titre',
-                  'travailleur', 'annee_sortie', 'telephone', 'bio',
-                  'domaine', 'role']
-        # Exclure 'password' car il est généré aléatoirement par le service
+        fields = [
+            'nom', 'prenom', 'email', 'matricule', 'statut', 'titre',
+            'travailleur', 'annee_sortie', 'telephone', 'bio',
+            'domaine', 'role'
+        ]
+        # Le mot de passe est généré automatiquement par le service
 
 class UserUpdateSchema(Schema):
     """
     Schéma pour la mise à jour d'un utilisateur (tous les champs optionnels).
-    Hérite de `Schema` pour une définition explicite et éviter les conflits.
     """
     nom: Optional[str] = None
     prenom: Optional[str] = None
@@ -63,9 +65,35 @@ class UserUpdateSchema(Schema):
     bio: Optional[str] = None
     domaine: Optional[str] = None
     role: Optional[str] = None
+    password: Optional[str] = None  # Pour permettre le changement de mot de passe
 
 class UserListSchema(ModelSchema):
     """Schéma simplifié pour les listes d'utilisateurs."""
     class Meta:
         model = User
-        fields = ['id', 'nom', 'prenom', 'email', 'statut', 'role', 'est_actif']
+        fields = [
+            'id', 'nom', 'prenom', 'email', 'statut', 
+            'role', 'est_actif', 'photo_profile', 'matricule'
+        ]
+
+# ==========================================
+# Schémas pour upload de photo
+# ==========================================
+
+class PhotoUploadResponseSchema(Schema):
+    """Schéma de réponse après upload de photo"""
+    message: str
+    photo_url: Optional[str] = None
+    
+
+# ==========================================
+# Schema pour les filtres utilisateur
+# ==========================================
+
+class UserFilterSchema(Schema):
+    """Schéma pour les filtres de recherche d'utilisateurs"""
+    search: Optional[str] = Field(None, description="Recherche dans nom, prenom, email, matricule")
+    role: Optional[str] = Field(None, description="Filtrer par rôle")
+    statut: Optional[str] = Field(None, description="Filtrer par statut")
+    est_actif: Optional[bool] = Field(None, description="Filtrer par statut actif")
+    travailleur: Optional[bool] = Field(None, description="Filtrer par statut travailleur")

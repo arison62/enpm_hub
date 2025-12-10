@@ -1,15 +1,15 @@
+# core/services/auth_service.py
 import logging
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.conf import settings
 from ninja.security import HttpBearer
-from ninja.errors import HttpError
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from core.models import User
 from core.services.audit_service import audit_log_service, AuditLog
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('app')
 
 # ==========================================
 # 1. Classes de Sécurité Django Ninja (API Layer)
@@ -39,24 +39,19 @@ class JWTAuthBearer(HttpBearer):
             
             return user
             
-        except InvalidToken:
-            # Le token est mal formé, la signature est invalide, etc.
-            logger.warning(f"Token JWT invalide reçu.")
-            raise HttpError(401, "Token invalide ou mal formé.")
-
-        except TokenError:
-            # Le token a expiré.
-            logger.warning(f"Tentative d'accès avec un token expiré.")
-            raise HttpError(401, "Le token a expiré.")
+        except (TokenError, InvalidToken) as e:
+            # Le token est expiré, mal formé ou la signature est invalide
+            logger.warning(f"Token JWT invalide : {str(e)}")
+            return None
             
         except User.DoesNotExist:
-            # Le token est valide, mais l'utilisateur n'existe plus.
-            logger.warning(f"Token JWT valide pour un utilisateur inexistant (ID: {user_id})")
-            raise HttpError(401, "Utilisateur non trouvé.")
+            # Le token est valide crypto-graphiquement, mais l'user n'existe plus
+            logger.warning(f"Token valide mais utilisateur introuvable (ID: {user_id})")
+            return None
             
         except Exception as e:
-            logger.error(f"Erreur inattendue lors de l'authentification JWT : {str(e)}")
-            raise HttpError(500, "Erreur interne du serveur.")
+            logger.error(f"Erreur inattendue lors de l'auth JWT: {str(e)}")
+            return None
         
 # ==========================================
 # 2. Service Métier (Service Layer)

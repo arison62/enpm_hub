@@ -1,3 +1,4 @@
+# core/services/audit_service.py
 import logging
 from core.models import AuditLog, User
 from django.http import HttpRequest

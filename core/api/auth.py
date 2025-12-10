@@ -1,3 +1,4 @@
+# core/api/auth.py
 from ninja import Router
 from django.http import HttpRequest
 from core.services.auth_service import AuthService, jwt_auth
@@ -56,7 +57,7 @@ def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
     de tokens (access et refresh), implémentant ainsi la rotation.
     """
     try:
-        refresh = RefreshToken(payload.refresh)
+        refresh = RefreshToken(payload.refresh) # type: ignore
 
         # La rotation est gérée automatiquement si `ROTATE_REFRESH_TOKENS` est à True.
         # Le simple fait d'accéder à `refresh.access_token` peut suffire si

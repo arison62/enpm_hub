@@ -161,6 +161,14 @@ STATIC_URL = 'static/'
 # Name of the directory to collect static files into. python manage.py collectstatic
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Tailles maximales
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
 # Debug toolbar settings
 INTERNAL_IPS = [
     "127.0.0.1",
