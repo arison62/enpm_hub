@@ -1,0 +1,58 @@
+<!-- templates/emails/welcome.html -->
+{% extends 'emails/base.html' %}
+
+{% block title %}Bienvenue sur {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="greeting">
+    Bienvenue {{ user_name }} ! 
+</div>
+
+<div class="content">
+    <p>Nous sommes ravis de vous accueillir sur <strong>ENSPM Hub</strong>, la plateforme qui connecte les anciens élèves, étudiants et partenaires de l'École Nationale Supérieure Polytechnique de Maroua.</p>
+    
+    <p>Votre compte a été créé avec succès. Voici vos identifiants de connexion :</p>
+</div>
+
+<div class="credentials">
+    <div class="credentials-label">Mot de passe temporaire</div>
+    <div class="credentials-value">{{ temp_password }}</div>
+</div>
+
+<div class="info-box">
+    <div class="info-box-title">Important - Sécurité</div>
+    <div class="info-box-content">
+        Pour votre sécurité, nous vous recommandons fortement de changer ce mot de passe temporaire dès votre première connexion.
+    </div>
+</div>
+
+<div style="text-align: center;">
+    <a href="{{ login_url }}" class="button">
+        Se connecter maintenant
+    </a>
+</div>
+
+<div class="divider"></div>
+
+<div class="content">
+    <p><strong>Que pouvez-vous faire sur ENSPM Hub ?</strong></p>
+    <ul style="padding-left: 20px;">
+        <li>Créer et personnaliser votre profil professionnel</li>
+        <li>Rester connecté avec votre réseau alumni</li>
+        <li>Découvrir des opportunités de carrière</li>
+        <li>Participer à des événements et projets</li>
+        <li>Partager vos expériences et connaissances</li>
+    </ul>
+</div>
+
+<div class="content">
+    <p>Si vous avez des questions ou besoin d'assistance, n'hésitez pas à nous contacter à <a href="mailto:{{ support_email }}" style="color: #1c71c1;">{{ support_email }}</a>.</p>
+    
+    <p>À très bientôt sur la plateforme !</p>
+    
+    <p style="margin-top: 30px;">
+        Cordialement,<br>
+        <strong>L'équipe ENSPM Hub</strong>
+    </p>
+</div>
+{% endblock %}

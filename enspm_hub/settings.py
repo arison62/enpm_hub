@@ -35,6 +35,75 @@ DEBUG = env.bool('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*']) # type: ignore
 
+# ==========================================
+# CONFIGURATION EMAIL
+# ==========================================
+
+EMAIL_BACKEND = env.str('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend') # type: ignore
+
+EMAIL_HOST = env.str('EMAIL_HOST', default='smtp.gmail.com') # type: ignore
+EMAIL_PORT = env.int('EMAIL_PORT', default=587) # type: ignore
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True) # type: ignore
+EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True) # type: ignore
+EMAIL_HOST_USER = env.str('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env.str('EMAIL_HOST_PASSWORD')
+
+# Configuration des emails
+DEFAULT_FROM_EMAIL = env.str('DEFAULT_FROM_EMAIL', default='noreply@enspmhub.com') # type: ignore
+SERVER_EMAIL = env.str('SERVER_EMAIL', default='enspmhub@enspmhub.com') # type: ignore
+SUPPORT_EMAIL = env.str('SUPPORT_EMAIL', default='enspmhub@enspmhub.com') # type: ignore
+
+# Informations du site
+SITE_NAME = env.str('SITE_NAME', default='ENSPM Hub') # type: ignore
+SITE_URL = env.str('SITE_URL', default='http://localhost:8000') # type: ignore
+
+
+# ==========================================
+# CONFIGURATION HUEY (TASK QUEUE)
+# ==========================================
+
+# Configuration Huey avec SQLite (pour débuter)
+HUEY = {
+    'huey_class': 'huey.SqliteHuey',
+    'name': 'enspm_hub_tasks',
+    'filename': os.path.join(BASE_DIR, 'huey.db'),
+    'results': True,
+    'store_none': False,
+    'immediate': False,  # False = mode asynchrone, True = mode synchrone (pour tests)
+    'utc': True,
+    'consumer': {
+        'workers': env.int('HUEY_WORKERS', default=1), # type: ignore  # Nombre de workers pour traiter les tâches
+        'worker_type': 'thread',  # 'thread', 'process' ou 'greenlet'
+        'initial_delay': 0.1,
+        'backoff': 1.15,
+        'max_delay': 10.0,
+        'scheduler_interval': 1,
+        'periodic': True,  # Support des tâches périodiques
+        'check_worker_health': True,
+        'health_check_interval': 10,
+    },
+}
+
+# Alternative : Configuration Huey avec Redis (pour production)
+# Décommenter et installer redis-py: pip install redis
+"""
+HUEY = {
+    'huey_class': 'huey.RedisHuey',
+    'name': 'enspm_hub_tasks',
+    'connection': {
+        'host': 'localhost',
+        'port': 6379,
+        'db': 0,
+        'max_connections': 20,
+    },
+    'immediate': False,
+    'consumer': {
+        'workers': 4,
+        'worker_type': 'thread',
+    },
+}
+"""
+
 
 # Application definition
 
@@ -46,6 +115,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "debug_toolbar",
+    'huey.contrib.djhuey',
     "django_vite",
     "inertia",
     "ninja",
@@ -209,6 +279,9 @@ def immutable_file_test(path, url):
     return re.match(r"^.+[.-][0-9a-zA-Z_-]{8,12}\..+$", url)
 
 WHITENOISE_IMMUTABLE_FILE_TEST = immutable_file_test
+
+
+
 
 
 # ==============================================================================

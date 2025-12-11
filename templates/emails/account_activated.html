@@ -1,0 +1,43 @@
+<!-- templates/emails/account_activated.html -->
+{% extends 'emails/base.html' %}
+
+{% block title %}Votre compte a été activé{% endblock %}
+
+{% block content %}
+<div class="greeting">
+    Bonne nouvelle {{ user_name }} !
+</div>
+
+<div class="content">
+    <p>Votre compte ENSPM Hub a été <strong>activé avec succès</strong>.</p>
+    
+    <p>Vous pouvez maintenant profiter pleinement de toutes les fonctionnalités de la plateforme et commencer à interagir avec la communauté alumni.</p>
+</div>
+
+<div style="text-align: center;">
+    <a href="{{ login_url }}" class="button">
+        Accéder à mon compte
+    </a>
+</div>
+
+<div class="info-box">
+    <div class="info-box-title">Prochaines étapes</div>
+    <div class="info-box-content">
+        <ol style="margin: 10px 0; padding-left: 20px;">
+            <li>Complétez votre profil professionnel</li>
+            <li>Ajoutez une photo de profil</li>
+            <li>Connectez-vous avec d'autres alumni</li>
+            <li>Explorez les opportunités disponibles</li>
+        </ol>
+    </div>
+</div>
+
+<div class="content">
+    <p>Besoin d'aide pour démarrer ? Consultez notre <a href="{{ site_url }}/guide" style="color: #1c71c1;">guide de démarrage</a> ou contactez-nous à <a href="mailto:{{ support_email }}" style="color: #1c71c1;">{{ support_email }}</a>.</p>
+    
+    <p style="margin-top: 30px;">
+        Bienvenue dans la communauté !<br>
+        <strong>L'équipe ENSPM Hub</strong>
+    </p>
+</div>
+{% endblock %}

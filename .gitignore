@@ -34,3 +34,6 @@ __pycache__/
 .venv/
 db.sqlite3
 media/
+
+# Huey database files
+huey.db*

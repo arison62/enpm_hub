@@ -9,6 +9,7 @@ from django.core.files.storage import default_storage
 from django.conf import settings
 from core.models import User
 from core.services.audit_service import audit_log_service, AuditLog
+from core.services.email_service import EmailTemplates
 from PIL import Image
 from io import BytesIO
 
@@ -68,7 +69,17 @@ class UserService:
         )
 
         # TODO: Envoyer le mot de passe par email à l'utilisateur
-        logger.warning(f"Mot de passe généré pour {new_user.email}: {random_password} (À envoyer par email)")
+        # try:
+        #     user_full_name = f"{new_user.titre or ''} {new_user.prenom or ''} {new_user.nom}".strip()
+        #     EmailTemplates.send_welcome_email(
+        #         user_email=new_user.email,
+        #         user_name=user_full_name,
+        #         temp_password=random_password
+        #     )
+        #     logger.info(f"Email de bienvenue envoyé à {new_user.email}")
+        # except Exception as e:
+        #     logger.error(f"Erreur lors de l'envoi de l'email de bienvenue à {new_user.email}: {str(e)}")
+        #     # On ne bloque pas la création même si l'email échoue
 
         return new_user
 
