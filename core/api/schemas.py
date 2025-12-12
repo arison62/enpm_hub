@@ -20,7 +20,7 @@ class TokenSchema(Schema):
     access_token: str
     refresh_token: str
     token_type: str = "Bearer"
-    user: "UserDetailSchema"  # Forward ref, résolue à la fin
+    user: "UserSchema"
 
 
 class RefreshTokenSchema(Schema):
@@ -77,8 +77,22 @@ class ProfilUpdateSchema(Schema):
 # ==========================================
 # 3. Schémas Utilisateur complets
 # ==========================================
+
+class UserSchema(Schema):
+    """
+    Schéma retourné login
+    """
+    id: UUID4
+    email: str
+    role_systeme: str
+    est_actif: bool
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class UserDetailSchema(Schema):
-    """Schéma complet retourné après login ou get me"""
+    """Schéma complet retourné get me"""
     id: UUID4
     email: str
     role_systeme: str
@@ -96,8 +110,6 @@ class UserCreateAdminSchema(Schema):
     """Pour création par un admin"""
     email: str
     role_systeme: Optional[str] = "user"
-    generate_password: Optional[bool] = True
-
     profil: ProfilCreateSchema
 
 
@@ -116,7 +128,7 @@ class UserUpdateAdminSchema(Schema):
 class PhotoUploadResponseSchema(Schema):
     """Réponse après upload réussi de photo"""
     message: str = "Photo de profil mise à jour avec succès"
-    photo_profil_url: Optional[str] = None
+    photo_profil: Optional[str] = None
 
 
 class PhotoDeleteResponseSchema(Schema):

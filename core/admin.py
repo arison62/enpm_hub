@@ -139,14 +139,14 @@ class ProfilAdmin(admin.ModelAdmin):
     search_fields = ('nom_complet', 'matricule', 'user__email', 'telephone', 'domaine')
     ordering = ('-created_at',)
     list_per_page = 25
-    readonly_fields = ('id', 'user', 'created_at', 'updated_at', 'deleted_at')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'deleted_at')
 
     fieldsets = (
         (_('Lien utilisateur'), {
             'fields': ('user',)
         }),
         (_('Informations personnelles'), {
-            'fields': ('nom_complet', 'matricule', 'titre', 'telephone', 'bio', 'photo_profil_url')
+            'fields': ('nom_complet', 'matricule', 'titre', 'telephone', 'bio', 'photo_profil')
         }),
         (_('Statut et domaine'), {
             'fields': ('statut_global', 'domaine', 'annee_sortie', 'travailleur')

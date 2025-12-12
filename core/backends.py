@@ -36,7 +36,7 @@ class EmailMatriculeAuthBackend(BaseBackend):
         if user.check_password(password) and user.est_actif: # type: ignore
             # Logging : L'AuditLog sera géré dans le Service d'Auth pour ne pas polluer le backend
             logger.info(
-                f"Authentification réussie pour User ID: {user.id} ({user.matricule or user.email})", # type: ignore
+                f"Authentification réussie pour User ID: {user.id} ({user.email})", # type: ignore
                 extra={'user_id': str(user.id), 'auth_method': 'matricule_or_email'} # type: ignore
             )
             return user

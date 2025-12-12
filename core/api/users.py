@@ -34,12 +34,12 @@ class CustomPagination(PageNumberPagination):
 # ==========================================
 def is_admin(request: HttpRequest) -> bool:
     """Vérifie si l'utilisateur a le rôle 'admin_site' ou 'super_admin'."""
-    user = request.auth
+    user = request.auth # type: ignore
     return user.role_systeme in ['admin_site', 'super_admin']
 
 def is_owner_or_admin(request: HttpRequest, user_id: str) -> bool:
     """Vérifie si l'utilisateur est le propriétaire ou un admin."""
-    return str(request.auth.id) == user_id or is_admin(request)
+    return str(request.auth.id) == user_id or is_admin(request) # type: ignore
 
 # ==========================================
 # Endpoints CRUD
@@ -47,7 +47,7 @@ def is_owner_or_admin(request: HttpRequest, user_id: str) -> bool:
 @users_router.post(
     "/",
     response={201: UserDetailSchema, 403: dict, 400: dict},
-    auth=jwt_auth,
+    auth=[jwt_auth],
     summary="Crée un nouvel utilisateur (admin uniquement)"
 )
 def create_user_endpoint(request: HttpRequest, payload: UserCreateAdminSchema):
@@ -55,7 +55,7 @@ def create_user_endpoint(request: HttpRequest, payload: UserCreateAdminSchema):
         return 403, {"detail": "Action non autorisée."}
     try:
         new_user = user_service.create_user(
-            acting_user=request.auth,
+            acting_user=request.auth, # type: ignore
             user_data=payload.dict(),
             request=request
         )
@@ -70,7 +70,7 @@ def create_user_endpoint(request: HttpRequest, payload: UserCreateAdminSchema):
     summary="Liste les utilisateurs avec filtres et pagination"
 )
 @paginate(CustomPagination)
-def list_users_endpoint(request: HttpRequest, filters: UserFilterSchema = Query(...)):
+def list_users_endpoint(request: HttpRequest, filters: Query[UserFilterSchema]):
     users = User.objects.select_related('profil').filter(deleted=False)
     
     if filters.search:
@@ -117,7 +117,7 @@ def update_user_endpoint(request: HttpRequest, user_id: str, payload: UserUpdate
 
     try:
         updated_user = user_service.update_user(
-            acting_user=request.auth,
+            acting_user=request.auth, # type: ignore
             user_to_update=user_to_update,
             data_update=payload.dict(exclude_unset=True),
             request=request
@@ -138,7 +138,7 @@ def delete_user_endpoint(request: HttpRequest, user_id: str):
 
     user_to_delete = get_object_or_404(User, id=user_id, deleted=False)
     user_service.soft_delete_user(
-        acting_user=request.auth,
+        acting_user=request.auth, # type: ignore
         user_to_delete=user_to_delete,
         request=request
     )
@@ -157,7 +157,7 @@ def delete_user_endpoint(request: HttpRequest, user_id: str):
 def upload_profile_photo(
     request: HttpRequest, 
     user_id: str, 
-    file: UploadedFile = File(...)
+    file: File[UploadedFile]
 ):
     """
     Upload ou remplace la photo de profil d'un utilisateur.
@@ -173,7 +173,7 @@ def upload_profile_photo(
 
     try:
         updated_user = user_service.upload_profile_photo(
-            acting_user=request.auth,
+            acting_user=request.auth, # type: ignore
             user=user,
             photo_file=file,
             request=request
@@ -181,7 +181,7 @@ def upload_profile_photo(
         
         return 200, {
             "message": "Photo de profil mise à jour avec succès",
-            "photo_profil_url": updated_user.profil.photo_profil.url if updated_user.profil.photo_profil else None
+            "photo_profil_url": updated_user.profil.photo_profil.url if updated_user.profil.photo_profil else None # type: ignore
         }
     except ValueError as e:
         return 400, {"detail": str(e)}
@@ -203,7 +203,7 @@ def delete_profile_photo(request: HttpRequest, user_id: str):
     user = get_object_or_404(User, id=user_id, deleted=False)
 
     user_service.delete_profile_photo(
-        acting_user=request.auth,
+        acting_user=request.auth, # type: ignore
         user=user,
         request=request
     )

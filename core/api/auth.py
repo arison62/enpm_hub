@@ -24,7 +24,6 @@ def login_endpoint(request: HttpRequest, payload: LoginSchema):
     """
     # 1. Appel du Service Layer (logique métier dans AuthService)
     auth_data = AuthService.login_user(request, payload.email, payload.password)
-    
     # 2. Gestion des erreurs et de la réponse
     if auth_data is None:
         return 401, {"detail": "Identifiant ou mot de passe invalide."}
@@ -58,7 +57,7 @@ def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
     de tokens (access et refresh), implémentant ainsi la rotation.
     """
     try:
-        refresh = RefreshToken(payload.refresh)
+        refresh = RefreshToken(payload.refresh) # type: ignore
 
         new_access_token = str(refresh.access_token)
         new_refresh_token = str(refresh)

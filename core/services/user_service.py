@@ -140,7 +140,7 @@ class UserService:
         file_name = f"profile_{user.id}.jpg"
         saved_path = default_storage.save(os.path.join('photos_profils', file_name), optimized_photo)
 
-        profil.photo_profil = saved_path
+        profil.photo_profil = saved_path # type: ignore
         profil.save()
 
         logger.info(f"Photo de profil mise à jour pour {user.id} par {acting_user.email}.")
