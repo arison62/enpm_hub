@@ -3,12 +3,14 @@ from ninja import Router
 from django.http import HttpRequest
 from core.services.auth_service import AuthService, jwt_auth
 from django.views.decorators.csrf import csrf_exempt
-from core.api.schemas import LoginSchema, TokenSchema, UserDetailSchema, RefreshTokenSchema
+from core.api.schemas import LoginSchema, TokenSchema, UserDetailSchema, RefreshTokenSchema, EmailSchema
 from ninja.security import django_auth
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from ninja.errors import HttpError
 from core.models import User
+from core.services.user_service import user_service
+from core.services.email_service import EmailTemplates
 
 # Création du Router
 auth_router = Router(tags=["Authentification"])
@@ -91,3 +93,25 @@ def get_current_user(request: HttpRequest):
     # request.auth contient l'utilisateur authentifié (grâce à jwt_auth ou django_auth)
     # Le type est garanti d'être User car l'authentification a réussi
     return 200, request.auth # type: ignore
+
+@auth_router.post(
+    "/recover-password",
+    response={204: None},
+    summary="Lance la procédure de récupération de mot de passe"
+)
+def recover_password_endpoint(request: HttpRequest, payload: EmailSchema):
+    """
+    Génère un nouveau mot de passe aléatoire pour l'utilisateur
+    et l'envoie par email. Retourne toujours 204 pour des raisons de sécurité.
+    """
+    result = user_service.recover_password(payload.email)
+
+    if result:
+        user, new_password = result
+        EmailTemplates.send_password_recovery_email(
+            user_email=user.email,
+            user_name=user.profil.nom_complet,
+            temp_password=new_password
+        )
+
+    return 204, None

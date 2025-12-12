@@ -28,6 +28,11 @@ class RefreshTokenSchema(Schema):
     refresh: str
 
 
+class EmailSchema(Schema):
+    """Schéma simple pour les opérations basées sur l'email."""
+    email: str
+
+
 # ==========================================
 # 2. Schémas Profil (données riches)
 # ==========================================
