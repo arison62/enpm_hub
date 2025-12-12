@@ -62,7 +62,7 @@ class AuthService:
 
     @staticmethod
     @transaction.atomic
-    def login_user(request, login_id: str, password: str):
+    def login_user(request, email: str, password: str):
         """
         Authentifie l'utilisateur via le backend MatriculeEmailAuthBackend, 
         crée la session Django, génère les jetons JWT et l'AuditLog.
@@ -74,13 +74,13 @@ class AuthService:
         """
         
         # 1. Authentification via le backend personnalisé (Matricule ou Email)
-        user = authenticate(request, username=login_id, password=password)
+        user = authenticate(request, username=email, password=password)
         
         if user is None:
             # Sécurité: Loguer les échecs d'authentification
             logger.warning(
-                f"Échec de connexion (Identifiant ou Mot de passe invalide) pour: {login_id}",
-                extra={'login_attempt': login_id}
+                f"Échec de connexion (Identifiant ou Mot de passe invalide) pour: {email}",
+                extra={'login_attempt': email}
             )
             # Nous pourrions lever une exception métier ici si nous ne voulions pas de 401
             # Mais la méthode d'API le gérera comme une erreur 401 ou 403.
@@ -103,13 +103,13 @@ class AuthService:
             entity_id=user.id, # type: ignore
             request=request,
             old_values=None,
-            new_values={'login_id': login_id}
+            new_values={'login_id': email}
         )
         logger.info(
             "Connexion réussie.", 
             extra={
                 'user_id': str(user.id), # type: ignore
-                'login_id': login_id, 
+                'login_id': email,
                 'action_type': 'LOGIN_SUCCESS'
             }
         )
@@ -119,7 +119,7 @@ class AuthService:
             "user_id": str(user.id), # type: ignore
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "role": user.role, # type: ignore
+            "user": user,
         }
 
     @staticmethod

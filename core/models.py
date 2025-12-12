@@ -182,9 +182,7 @@ class LienReseauSocial(ENSPMHubBaseModel):
         ('Portfolio', 'Portfolio'),
     ]
 
-    profil = models.ForeignKey(Profil, null=True, blank=True, on_delete=models.CASCADE, related_name='liens_reseaux')
-    organisation = models.ForeignKey('Organisation', null=True, blank=True, on_delete=models.CASCADE,
-                                    related_name='liens_reseaux')
+    profil = models.ForeignKey(Profil, on_delete=models.CASCADE, related_name='liens_reseaux')
     nom_reseau = models.CharField(max_length=50, choices=NOM_RESEAU_CHOICES)
     url = models.URLField(verbose_name=_("URL"))
     est_actif = models.BooleanField(default=True)
@@ -195,12 +193,6 @@ class LienReseauSocial(ENSPMHubBaseModel):
 
     def __str__(self):
         return f"{self.nom_reseau} - {self.url}"
-
-    def clean(self):
-        if not self.profil and not self.organisation:
-            raise ValidationError("Un lien doit être associé à un profil ou une organisation.")
-        if self.profil and self.organisation:
-            raise ValidationError("Un lien ne peut être associé qu'à un seul type (profil ou organisation).")
 
 
 

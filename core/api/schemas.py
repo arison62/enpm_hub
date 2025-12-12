@@ -35,7 +35,7 @@ class ProfilOutSchema(ModelSchema):
     """Schéma de sortie pour le Profil (inclut l'URL de la photo)"""
     photo_profil: Optional[str] = None  # On expose l'URL
 
-    class Config:
+    class Meta:
         model = Profil
         fields = [
             'nom_complet', 'matricule', 'titre', 'statut_global',
@@ -53,7 +53,7 @@ class ProfilCreateSchema(Schema):
     nom_complet: str
     matricule: Optional[str] = None
     titre: Optional[str] = None
-    statut_global: str = "etudiant"
+    statut_global: Optional[str] = "etudiant"
     travailleur: Optional[bool] = False
     annee_sortie: Optional[int] = None
     telephone: Optional[str] = None
@@ -137,7 +137,5 @@ class UserFilterSchema(Schema):
     statut_global: Optional[str] = Field(None, description="Filtrer par statut (etudiant, alumni, etc.)")
     est_actif: Optional[bool] = Field(None, description="Filtrer par compte actif")
     travailleur: Optional[bool] = Field(None, description="Filtrer par statut travailleur")
-    page: Optional[int] = Field(1, ge=1, description="Page")
-    page_size: Optional[int] = Field(20, ge=1, le=100, description="Taille de page")
 
 
