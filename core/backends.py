@@ -26,7 +26,7 @@ class EmailMatriculeAuthBackend(BaseBackend):
         try:
             # Recherche insensible à la casse pour l'email
             user = User.objects.get(
-                Q(matricule__iexact=username) | Q(email__iexact=username)
+               Q(email__iexact=username)
             )
         except User.DoesNotExist:
             logger.info(f"Échec authentification: Identifiant non trouvé: {username}")

@@ -1,45 +1,53 @@
-```mermaid
 erDiagram
-    utilisateur ||--o{ stage : "crée"
-    utilisateur ||--o{ formation : "crée"
-    utilisateur ||--o{ emploi : "crée"
-    utilisateur ||--o{ groupe : "crée"
-    utilisateur ||--o{ membre_groupe : "appartient"
-    utilisateur ||--o{ message : "envoie"
-    utilisateur ||--o{ contact_organisation : "est_contact_de"
-    utilisateur ||--o{ validation_formation : "valide"
-    utilisateur ||--o{ validation_groupe : "valide"
+    %% --- 1. CŒUR DU SYSTÈME : AUTHENTIFICATION & PROFIL ---
+    users ||--|| profil : "possède (1-1)"
     
-    organisation ||--o{ contact_organisation : "a_pour_contact"
-    organisation ||--o{ stage : "offre"
-    organisation ||--o{ formation : "offre"
-    organisation ||--o{ emploi : "offre"
-    
-    groupe ||--o{ message : "contient"
-    groupe ||--o{ membre_groupe : "a_pour_membre"
-    
-    formation ||--o{ validation_formation : "fait_objet_de"
-    groupe ||--o{ validation_groupe : "fait_objet_de"
-
-    utilisateur {
+    users {
         uuid id PK
+        varchar email UK
+        varchar mot_de_passe_hash
+        enum role_systeme "user, admin_site, super_admin"
+        timestamp last_login
+        boolean est_actif
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    profil {
+        uuid id PK
+        uuid user_id FK
         varchar nom_complet
         varchar matricule UK
-        varchar email UK
-        varchar titre
-        varchar mot_de_passe_hash
-        enum statut "etudiant, enseignant, directeur, personnel_admin, personnel_technique"
+        varchar titre "Ex: Dr., Prof., etc."
+        enum statut_global "etudiant, alumni, enseignant, personnel_admin, personnel_technique, partenaire"
         boolean travailleur
         smallint annee_sortie
         varchar telephone
         text photo_profil_url
         varchar domaine
-        enum role "user, admin, super_admin"
+        text bio "Nouveau champ pour description profil"
         timestamp created_at
         timestamp updated_at
-        timestamp last_login
+    }
+
+    %% --- 2. GESTION RÉSEAUX SOCIAUX (Rel 1-N) ---
+    profil ||--o{ lien_reseau_social : "affiche"
+    organisation ||--o{ lien_reseau_social : "affiche"
+
+    lien_reseau_social {
+        uuid id PK
+        uuid profil_id FK "Nullable"
+        uuid organisation_id FK "Nullable"
+        varchar nom_reseau "LinkedIn, Facebook, SiteWeb, Portfolio"
+        varchar url
         boolean est_actif
     }
+
+    %% --- 3. ORGANISATIONS & MEMBRES (Type LinkedIn) ---
+    organisation ||--o{ membre_organisation : "emploie"
+    profil ||--o{ membre_organisation : "travaille_chez"
+    organisation ||--o{ abonnement_organisation : "est_suivie_par"
+    profil ||--o{ abonnement_organisation : "suit"
 
     organisation {
         uuid id PK
@@ -49,7 +57,6 @@ erDiagram
         text adresse
         varchar ville
         varchar pays
-        varchar site_web
         varchar email_general
         varchar telephone_general
         text logo_url
@@ -60,24 +67,77 @@ erDiagram
         timestamp updated_at
     }
 
-    contact_organisation {
+    %% Remplacement de 'contact_organisation' par 'membre_organisation' plus robuste
+    membre_organisation {
         uuid id PK
-        uuid utilisateur_id FK
+        uuid profil_id FK
         uuid organisation_id FK
-        enum role_contact "representant_legal, contact_rh, contact_stage, alumni_fondateur, employe, stagiaire"
-        varchar email_professionnel
-        varchar telephone_professionnel
-        varchar poste
-        boolean est_contact_principal
+        enum role_organisation "employe, administrateur_page"
+        varchar poste "Intitulé du poste"
+        boolean est_actif
         date date_debut
         date date_fin
+        timestamp created_at
+    }
+
+    abonnement_organisation {
+        uuid profil_id PK, FK
+        uuid organisation_id PK, FK
+        timestamp date_abonnement
+    }
+
+    %% --- 4. FLUX D'ACTUALITÉ (POSTS & ÉVÉNEMENTS) ---
+    %% Polymorphisme : Un post est écrit par un Profil OU une Organisation
+    profil ||--o{ post : "publie_perso"
+    organisation ||--o{ post : "publie_org"
+    post ||--o{ commentaire : "reçoit"
+    
+    post {
+        uuid id PK
+        text contenu
+        text media_url
+        uuid auteur_profil_id FK "Rempli si l'auteur est une personne"
+        uuid auteur_organisation_id FK "Rempli si publié au nom de l'entreprise"
+        integer nombre_likes
         timestamp created_at
         timestamp updated_at
     }
 
+    commentaire {
+        uuid id PK
+        uuid post_id FK
+        text contenu
+        uuid auteur_profil_id FK
+        uuid auteur_organisation_id FK
+        timestamp created_at
+    }
+
+    %% Héritage conceptuel pour les événements
+    organisation ||--o{ evenement : "organise"
+    profil ||--o{ evenement : "organise"
+
+    evenement {
+        uuid id PK
+        varchar titre
+        text description
+        varchar lieu
+        timestamp date_debut
+        timestamp date_fin
+        text lien_inscription "Lien externe event"
+        uuid organisateur_profil_id FK
+        uuid organisateur_organisation_id FK
+        timestamp created_at
+    }
+
+    %% --- 5. OFFRES (MÉTIER EXISTANT CONSERVÉ + LIENS) ---
+    organisation ||--o{ stage : "offre"
+    profil ||--o{ stage : "crée"
+    organisation ||--o{ emploi : "offre"
+    profil ||--o{ emploi : "crée"
+    
     stage {
         uuid id PK
-        uuid createur_id FK
+        uuid createur_profil_id FK
         uuid organisation_id FK
         varchar titre
         varchar lieu
@@ -86,7 +146,8 @@ erDiagram
         enum type_stage "ouvrier, academique, professionnel"
         varchar email_contact
         varchar telephone_contact
-        text lien_offre
+        text lien_offre_original
+        text lien_candidature "Nouveau : Lien pour postuler"
         date date_debut
         date date_fin
         enum statut "active, expiree, pourvue"
@@ -94,9 +155,34 @@ erDiagram
         timestamp updated_at
     }
 
+    emploi {
+        uuid id PK
+        uuid createur_profil_id FK
+        uuid organisation_id FK
+        varchar titre
+        varchar lieu
+        varchar nom_structure
+        text description
+        enum type_emploi "temps_plein_terrain, temps_partiel_terrain, temps_plein_ligne, etc"
+        varchar email_contact
+        varchar telephone_contact
+        text lien_offre_original
+        text lien_candidature "Nouveau : Lien pour postuler"
+        date date_publication
+        date date_expiration
+        enum statut "active, expiree, pourvue"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    %% --- 6. FORMATIONS & VALIDATIONS (EXISTANT CONSERVÉ) ---
+    organisation ||--o{ formation : "offre"
+    profil ||--o{ formation : "crée"
+    formation ||--o{ validation_formation : "fait_objet_de"
+
     formation {
         uuid id PK
-        uuid createur_id FK
+        uuid createur_profil_id FK
         uuid organisation_id FK
         varchar titre
         varchar lieu
@@ -107,6 +193,7 @@ erDiagram
         varchar email_contact
         varchar telephone_contact
         text lien_formation
+        text lien_inscription "Nouveau : Lien pour s'inscrire"
         date date_debut
         date date_fin
         decimal prix
@@ -116,28 +203,24 @@ erDiagram
         timestamp updated_at
     }
 
-    emploi {
+    validation_formation {
         uuid id PK
-        uuid createur_id FK
-        uuid organisation_id FK
-        varchar titre
-        varchar lieu
-        varchar nom_structure
-        text description
-        enum type_emploi "temps_plein_terrain, temps_partiel_terrain, temps_plein_ligne, temps_partiel_ligne, hybride"
-        varchar email_contact
-        varchar telephone_contact
-        text lien_offre
-        date date_publication
-        date date_expiration
-        enum statut "active, expiree, pourvue"
-        timestamp created_at
-        timestamp updated_at
+        uuid formation_id FK
+        uuid validateur_profil_id FK
+        boolean est_approuve
+        text commentaire
+        timestamp date_validation
     }
+
+    %% --- 7. GROUPES & MESSAGERIE (EXISTANT CONSERVÉ) ---
+    profil ||--o{ groupe : "crée"
+    groupe ||--o{ membre_groupe : "contient"
+    groupe ||--o{ message : "contient"
+    groupe ||--o{ validation_groupe : "fait_objet_de"
 
     groupe {
         uuid id PK
-        uuid createur_id FK
+        uuid createur_profil_id FK
         varchar nom_groupe UK
         text photo_groupe_url
         text description
@@ -150,7 +233,7 @@ erDiagram
 
     membre_groupe {
         uuid id PK
-        uuid utilisateur_id FK
+        uuid profil_id FK
         uuid groupe_id FK
         enum role_membre "membre, moderateur, admin"
         timestamp date_adhesion
@@ -161,34 +244,24 @@ erDiagram
     message {
         uuid id PK
         uuid groupe_id FK
-        uuid utilisateur_id FK
+        uuid profil_id FK
         text texte
         text fichier_url
         enum type_fichier "image, pdf, word, excel, powerpoint, video"
         boolean est_supprime
         timestamp created_at
-        timestamp updated_at
-        timestamp date_suppression_auto
-    }
-
-    validation_formation {
-        uuid id PK
-        uuid formation_id FK
-        uuid validateur_id FK
-        boolean est_approuve
-        text commentaire
-        timestamp date_validation
     }
 
     validation_groupe {
         uuid id PK
         uuid groupe_id FK
-        uuid validateur_id FK
+        uuid validateur_profil_id FK
         boolean est_approuve
         text commentaire
         timestamp date_validation
     }
 
+    %% --- 8. TABLES SYSTÈME & RÉFÉRENCES (CONSERVÉES) ---
     domaine_reference {
         uuid id PK
         varchar nom_domaine UK
@@ -203,128 +276,12 @@ erDiagram
 
     audit_log {
         uuid id PK
-        uuid utilisateur_id FK
+        uuid user_id FK "Lien vers la table technique user"
         varchar table_name
-        varchar action "INSERT, UPDATE, DELETE"
+        varchar action
         jsonb ancien_data
         jsonb nouveau_data
         inet ip_address
         text user_agent
         timestamp created_at
     }
-```
-
-```sql
-CREATE INDEX idx_utilisateur_email ON utilisateur(email);
-CREATE INDEX idx_utilisateur_matricule ON utilisateur(matricule);
-CREATE INDEX idx_utilisateur_statut ON utilisateur(statut);
-CREATE INDEX idx_utilisateur_annee_sortie ON utilisateur(annee_sortie) 
-    WHERE annee_sortie IS NOT NULL;
-CREATE INDEX idx_utilisateur_travailleur ON utilisateur(travailleur);
-CREATE INDEX idx_organisation_statut ON organisation(statut);
-CREATE INDEX idx_organisation_secteur ON organisation(secteur_activite);
-CREATE INDEX idx_organisation_ville ON organisation(ville);
-CREATE FULLTEXT INDEX idx_organisation_search ON organisation 
-    USING gin(to_tsvector('french', nom_organisation || ' ' || description));
-CONSTRAINT unique_contact_principal 
-    UNIQUE (organisation_id, est_contact_principal) 
-    WHERE est_contact_principal = TRUE
-CREATE INDEX idx_contact_utilisateur ON contact_organisation(utilisateur_id);
-CREATE INDEX idx_contact_organisation ON contact_organisation(organisation_id);
-CREATE INDEX idx_contact_principal ON contact_organisation(organisation_id) 
-    WHERE est_contact_principal = TRUE;
--- Job CRON ou pg_cron extension
-CREATE EXTENSION pg_cron;
-
-SELECT cron.schedule(
-    'expire-old-offers',
-    '0 2 * * *', -- Tous les jours à 2h
-    $$
-    UPDATE stage SET statut = 'expiree' 
-    WHERE date_fin < CURRENT_DATE AND statut = 'active';
-    
-    UPDATE emploi SET statut = 'expiree' 
-    WHERE date_expiration < CURRENT_DATE AND statut = 'active';
-    $$
-);
-CREATE INDEX idx_stage_createur ON stage(createur_id);
-CREATE INDEX idx_stage_organisation ON stage(organisation_id);
-CREATE INDEX idx_stage_statut ON stage(statut);
-CREATE INDEX idx_stage_lieu ON stage(lieu);
-CREATE FULLTEXT INDEX idx_stage_search ON stage 
-    USING gin(to_tsvector('french', titre || ' ' || COALESCE(description, '')));
-nom_groupe VARCHAR(100) UNIQUE NOT NULL;
-CREATE INDEX idx_groupe_createur ON groupe(createur_id);
-CREATE INDEX idx_groupe_type ON groupe(type_groupe);
-CREATE INDEX idx_groupe_valide ON groupe(est_valide);
-CREATE INDEX idx_membre_utilisateur ON membre_groupe(utilisateur_id);
-CREATE INDEX idx_membre_groupe ON membre_groupe(groupe_id);
-CREATE INDEX idx_membre_actif ON membre_groupe(groupe_id, est_actif) 
-    WHERE est_actif = TRUE;
-SELECT cron.schedule(
-    'delete-old-messages',
-    '0 3 * * 0', -- Tous les dimanches à 3h
-    $$
-    DELETE FROM message 
-    WHERE date_suppression_auto < CURRENT_TIMESTAMP;
-    $$
-);
-CREATE INDEX idx_message_groupe ON message(groupe_id, created_at DESC);
-CREATE INDEX idx_message_utilisateur ON message(utilisateur_id);
-CREATE INDEX idx_message_suppression ON message(date_suppression_auto) 
-    WHERE est_supprime = FALSE;
-CREATE TABLE audit_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    utilisateur_id UUID REFERENCES utilisateur(id),
-    table_name VARCHAR(50) NOT NULL,
-    action VARCHAR(10) NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
-    ancien_data JSONB,
-    nouveau_data JSONB,
-    ip_address INET,
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_audit_utilisateur ON audit_log(utilisateur_id);
-CREATE INDEX idx_audit_table ON audit_log(table_name);
-CREATE INDEX idx_audit_date ON audit_log(created_at DESC);
-CREATE INDEX idx_audit_action ON audit_log(action);
-CREATE MATERIALIZED VIEW stats_emploi_par_annee AS
-SELECT 
-    annee_sortie,
-    COUNT(*) as total_diplomes,
-    COUNT(*) FILTER (WHERE travailleur = TRUE) as nb_travaillent,
-    COUNT(*) FILTER (WHERE travailleur = FALSE) as nb_recherche,
-    ROUND(100.0 * COUNT(*) FILTER (WHERE travailleur = TRUE) / COUNT(*), 2) as taux_emploi
-FROM utilisateur
-WHERE statut = 'etudiant' AND annee_sortie IS NOT NULL
-GROUP BY annee_sortie
-ORDER BY annee_sortie DESC;
-
--- Rafraîchir toutes les nuits
-CREATE INDEX ON stats_emploi_par_annee (annee_sortie);
-
-SELECT cron.schedule(
-    'refresh-stats',
-    '0 1 * * *',
-    $$ REFRESH MATERIALIZED VIEW CONCURRENTLY stats_emploi_par_annee; $$
-);
-
--- Configuration pour le français
-CREATE TEXT SEARCH CONFIGURATION fr (COPY = french);
-
--- Colonne générée pour recherche
-ALTER TABLE stage ADD COLUMN search_vector tsvector
-    GENERATED ALWAYS AS (
-        to_tsvector('fr', coalesce(titre, '') || ' ' || 
-                          coalesce(description, '') || ' ' || 
-                          coalesce(lieu, ''))
-    ) STORED;
-
-CREATE INDEX idx_stage_search ON stage USING gin(search_vector);
-
--- Recherche rapide
-SELECT * FROM stage 
-WHERE search_vector @@ to_tsquery('fr', 'maintenance & informatique')
-ORDER BY ts_rank(search_vector, to_tsquery('fr', 'maintenance & informatique')) DESC;
-
-```

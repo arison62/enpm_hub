@@ -1,99 +1,143 @@
-from typing import Optional
-from ninja import Schema, ModelSchema, Field
-from core.models import User
+# core/api/schemas.py
+from typing import Optional, List
+from ninja import Schema, Field, ModelSchema
+from pydantic import UUID4
+from datetime import datetime
+from core.models import User, Profil
+
 
 # ==========================================
-# Schémas d'authentification
+# 1. Schémas d'authentification
 # ==========================================
-
 class LoginSchema(Schema):
-    """Schéma d'entrée pour l'authentification (Matricule ou Email)"""
-    login_id: str
-    password: str
-    
+    """Schéma d'entrée pour l'authentification (email uniquement)"""
+    email: str = Field(..., description="Adresse email de l'utilisateur")
+    password: str = Field(..., description="Mot de passe")
+
+
 class TokenSchema(Schema):
     """Schéma de sortie après connexion réussie"""
-    user_id: str
     access_token: str
     refresh_token: str
-    role: str  # Important pour le RBAC côté client
-    
+    token_type: str = "Bearer"
+    user: "UserDetailSchema"  # Forward ref, résolue à la fin
+
+
 class RefreshTokenSchema(Schema):
-    """Schéma pour fournir un refresh token."""
+    """Schéma pour rafraîchir le token"""
     refresh: str
 
-# ==========================================
-# Schémas utilisateur
-# ==========================================
 
-class UserSchema(ModelSchema):
-    """Schéma de sortie complet pour un utilisateur"""
-    class Meta:
-        model = User
-        fields = (
-            'id', 'nom', 'prenom', 'email', 
-            'matricule', 'bio', 'telephone', 
-            'travailleur', 'role', 'statut',
-            'annee_sortie', 'domaine', 'photo_profile',
-            'titre', 'est_actif', 'created_at', 'updated_at'
-        )
+# ==========================================
+# 2. Schémas Profil (données riches)
+# ==========================================
+class ProfilOutSchema(ModelSchema):
+    """Schéma de sortie pour le Profil (inclut l'URL de la photo)"""
+    photo_profil: Optional[str] = None  # On expose l'URL
 
-class UserCreateSchema(ModelSchema):
-    """Schéma pour la création d'un utilisateur."""
-    class Meta:
-        model = User
+    class Config:
+        model = Profil
         fields = [
-            'nom', 'prenom', 'email', 'matricule', 'statut', 'titre',
-            'travailleur', 'annee_sortie', 'telephone', 'bio',
-            'domaine', 'role'
+            'nom_complet', 'matricule', 'titre', 'statut_global',
+            'travailleur', 'annee_sortie', 'telephone', 'domaine',
+            'bio', 'photo_profil'
         ]
-        # Le mot de passe est généré automatiquement par le service
 
-class UserUpdateSchema(Schema):
-    """
-    Schéma pour la mise à jour d'un utilisateur (tous les champs optionnels).
-    """
-    nom: Optional[str] = None
-    prenom: Optional[str] = None
-    email: Optional[str] = None
+    @staticmethod
+    def resolve_photo_profil(obj):
+        return obj.photo_profil.url if obj.photo_profil else None
+
+
+class ProfilCreateSchema(Schema):
+    """Schéma pour création du Profil (lors de la création utilisateur)"""
+    nom_complet: str
     matricule: Optional[str] = None
-    statut: Optional[str] = None
     titre: Optional[str] = None
+    statut_global: str = "etudiant"
+    travailleur: Optional[bool] = False
+    annee_sortie: Optional[int] = None
+    telephone: Optional[str] = None
+    domaine: Optional[str] = None
+    bio: Optional[str] = None
+
+
+class ProfilUpdateSchema(Schema):
+    """Schéma pour mise à jour partielle du Profil"""
+    nom_complet: Optional[str] = None
+    matricule: Optional[str] = None
+    titre: Optional[str] = None
+    statut_global: Optional[str] = None
     travailleur: Optional[bool] = None
     annee_sortie: Optional[int] = None
     telephone: Optional[str] = None
-    bio: Optional[str] = None
     domaine: Optional[str] = None
-    role: Optional[str] = None
-    password: Optional[str] = None  # Pour permettre le changement de mot de passe
+    bio: Optional[str] = None
 
-class UserListSchema(ModelSchema):
-    """Schéma simplifié pour les listes d'utilisateurs."""
-    class Meta:
-        model = User
-        fields = [
-            'id', 'nom', 'prenom', 'email', 'statut', 
-            'role', 'est_actif', 'photo_profile', 'matricule'
-        ]
 
 # ==========================================
-# Schémas pour upload de photo
+# 3. Schémas Utilisateur complets
 # ==========================================
+class UserDetailSchema(Schema):
+    """Schéma complet retourné après login ou get me"""
+    id: UUID4
+    email: str
+    role_systeme: str
+    est_actif: bool
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
+    profil: ProfilOutSchema
+
+# ==========================================
+# 4. Schémas Admin (création/mise à jour complète)
+# ==========================================
+class UserCreateAdminSchema(Schema):
+    """Pour création par un admin"""
+    email: str
+    role_systeme: Optional[str] = "user"
+    generate_password: Optional[bool] = True
+
+    profil: ProfilCreateSchema
+
+
+class UserUpdateAdminSchema(Schema):
+    """Pour mise à jour par un admin"""
+    email: Optional[str] = None
+    role_systeme: Optional[str] = None
+    est_actif: Optional[bool] = None
+
+    profil: Optional[ProfilUpdateSchema] = None
+
+
+# ==========================================
+# 5. Schémas Photo de profil
+# ==========================================
 class PhotoUploadResponseSchema(Schema):
-    """Schéma de réponse après upload de photo"""
-    message: str
-    photo_url: Optional[str] = None
-    
+    """Réponse après upload réussi de photo"""
+    message: str = "Photo de profil mise à jour avec succès"
+    photo_profil_url: Optional[str] = None
+
+
+class PhotoDeleteResponseSchema(Schema):
+    """Réponse après suppression de photo"""
+    message: str = "Photo de profil supprimée avec succès"
+
 
 # ==========================================
-# Schema pour les filtres utilisateur
+# 6. Filtres de recherche
 # ==========================================
-
 class UserFilterSchema(Schema):
-    """Schéma pour les filtres de recherche d'utilisateurs"""
-    search: Optional[str] = Field(None, description="Recherche dans nom, prenom, email, matricule")
-    role: Optional[str] = Field(None, description="Filtrer par rôle")
-    statut: Optional[str] = Field(None, description="Filtrer par statut")
-    est_actif: Optional[bool] = Field(None, description="Filtrer par statut actif")
+    """Filtres pour endpoint de liste utilisateurs"""
+    search: Optional[str] = Field(
+        None,
+        description="Recherche dans nom complet, email, matricule, téléphone, domaine"
+    )
+    role_systeme: Optional[str] = Field(None, description="Filtrer par rôle système")
+    statut_global: Optional[str] = Field(None, description="Filtrer par statut (etudiant, alumni, etc.)")
+    est_actif: Optional[bool] = Field(None, description="Filtrer par compte actif")
     travailleur: Optional[bool] = Field(None, description="Filtrer par statut travailleur")
+    page: Optional[int] = Field(1, ge=1, description="Page")
+    page_size: Optional[int] = Field(20, ge=1, le=100, description="Taille de page")
+
+
