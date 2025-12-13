@@ -19,6 +19,7 @@ from .schemas import (
     MembreOrganisationCreateSchema,
     MembreOrganisationUpdateSchema,
     AbonnementOrganisationOutSchema,
+    LogoUploadResponseSchema,
 )
 
 organizations_router = Router(tags=["Organisations"])
@@ -100,17 +101,23 @@ def update_organisation_status_endpoint(request: HttpRequest, org_id: UUID4, pay
 
 @organizations_router.post(
     "/{org_id}/logo",
-    response={200: OrganisationOutSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: LogoUploadResponseSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
     auth=jwt_auth,
     summary="Uploader un logo pour une organisation"
 )
 def upload_logo_endpoint(request: HttpRequest, org_id: UUID4, file: File[UploadedFile]):
-    updated_organisation = organisation_service.update_organisation_logo(
-        acting_user=request.auth,  # type: ignore
-        org_id=org_id,
-        logo_file=file
-    )
-    return updated_organisation
+    try:
+        updated_organisation = organisation_service.update_organisation_logo(
+            acting_user=request.auth,  # type: ignore
+            org_id=org_id,
+            logo_file=file
+        )
+        return 200, {
+            "message": "Logo de l'organisation mis à jour avec succès",
+            "logo_url": updated_organisation.logo.url if updated_organisation.logo else None
+        }
+    except ValueError as e:
+        return 400, {"detail": str(e)}
 
 @organizations_router.delete(
     "/{org_id}",

@@ -1,9 +1,13 @@
 # organizations/services/organisation_service.py
+import os
 from typing import List, Dict, Optional
 from uuid import UUID
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.core.files.uploadedfile import UploadedFile
+from django.core.files.storage import default_storage
+from PIL import Image
+from io import BytesIO
 from core.models import User
 from organizations.models import Organisation, MembreOrganisation
 from core.api.exceptions import PermissionDeniedAPIException, NotFoundAPIException, BadRequestAPIException
@@ -12,6 +16,9 @@ class OrganisationService:
     """
     Service containing the business logic for managing organisations.
     """
+    ALLOWED_LOGO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
+    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
+    LOGO_MAX_DIMENSIONS = (400, 400)
 
     @staticmethod
     def _is_site_admin(user: User) -> bool:
@@ -122,6 +129,31 @@ class OrganisationService:
         return organisation
 
     @staticmethod
+    def _validate_logo(logo_file: UploadedFile):
+        if not logo_file:
+            raise ValueError("Aucun fichier n'a été fourni.")
+        file_ext = os.path.splitext(logo_file.name)[1].lower()
+        if file_ext not in OrganisationService.ALLOWED_LOGO_EXTENSIONS:
+            raise ValueError(f"Format de fichier non autorisé. Acceptés : {', '.join(OrganisationService.ALLOWED_LOGO_EXTENSIONS)}")
+        if logo_file.size > OrganisationService.MAX_LOGO_SIZE:
+            raise ValueError(f"La taille du fichier dépasse {OrganisationService.MAX_LOGO_SIZE / (1024*1024)} MB.")
+        try:
+            Image.open(logo_file).verify()
+        except Exception:
+            raise ValueError("Le fichier n'est pas une image valide.")
+
+    @staticmethod
+    def _optimize_logo(logo_file: UploadedFile) -> BytesIO:
+        image = Image.open(logo_file)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+        image.thumbnail(OrganisationService.LOGO_MAX_DIMENSIONS, Image.Resampling.LANCZOS)
+        output = BytesIO()
+        image.save(output, format='JPEG', quality=85)
+        output.seek(0)
+        return output
+
+    @staticmethod
     @transaction.atomic
     def update_organisation_logo(acting_user: User, org_id: UUID, logo_file: UploadedFile) -> Organisation:
         """
@@ -129,10 +161,19 @@ class OrganisationService:
         """
         organisation = get_object_or_404(Organisation, id=org_id, deleted=False)
         if not OrganisationService._is_organisation_admin(acting_user, organisation):
-            raise PermissionDeniedAPIException("Vous n'avez pas la permission de modifier cette organisation.")
+            raise PermissionDeniedAPIException("Vous n'avez pas la permission de modifier le logo de cette organisation.")
 
-        # Logic to handle file validation and storage can be added here
-        organisation.logo = logo_file
+        OrganisationService._validate_logo(logo_file)
+
+        # Delete the old logo if it exists
+        if organisation.logo and organisation.logo.path and os.path.exists(organisation.logo.path):
+            os.remove(organisation.logo.path)
+
+        optimized_logo = OrganisationService._optimize_logo(logo_file)
+        file_name = f"logo_{organisation.id}.jpg"
+        saved_path = default_storage.save(os.path.join('logos_organisations', file_name), optimized_logo)
+
+        organisation.logo = saved_path
         organisation.save()
         return organisation
 

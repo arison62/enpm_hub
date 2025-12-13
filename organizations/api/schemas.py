@@ -63,3 +63,8 @@ class AbonnementOrganisationOutSchema(ModelSchema):
     class Meta:
         model = AbonnementOrganisation
         fields = "__all__"
+
+class LogoUploadResponseSchema(Schema):
+    """Réponse après upload réussi de logo"""
+    message: str = "Logo de l'organisation mis à jour avec succès"
+    logo_url: Optional[str] = None
