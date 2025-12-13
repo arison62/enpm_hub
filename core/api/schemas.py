@@ -156,3 +156,21 @@ class UserFilterSchema(Schema):
     travailleur: Optional[bool] = Field(None, description="Filtrer par statut travailleur")
 
 
+# ==========================================
+# 7. Schémas d'erreur standardisés
+# ==========================================
+class MessageSchema(Schema):
+    """Schéma de réponse pour les messages simples (erreurs, succès)."""
+    detail: str
+
+
+class FieldErrorSchema(Schema):
+    """Détail d'une erreur de validation pour un champ spécifique."""
+    field: str
+    message: str
+
+
+class ValidationErrorSchema(Schema):
+    """Schéma pour les erreurs de validation (422)."""
+    detail: str = "Erreur de validation."
+    errors: List[FieldErrorSchema]

@@ -1,7 +1,7 @@
 from ninja import NinjaAPI
 from ninja.throttling import AnonRateThrottle, AuthRateThrottle
 from django.http import JsonResponse
-from ninja.errors import ValidationError, HttpError
+from ninja.errors import ValidationError, HttpError, AuthenticationError, AuthorizationError
 from django.http import Http404
 from django.conf import settings
 import logging
@@ -39,6 +39,16 @@ def validation_errors(request, exc):
             "message": error['msg']
         })
     return JsonResponse({"detail": "Erreur de validation.", "errors": errors}, status=422)
+
+@api_v1.exception_handler(AuthenticationError)
+def authentication_error(request, exc):
+    """Handler pour les erreurs d'authentification (401)."""
+    return JsonResponse({"detail": "Authentification requise. Veuillez fournir des identifiants valides."}, status=401)
+
+@api_v1.exception_handler(AuthorizationError)
+def authorization_error(request, exc):
+    """Handler pour les erreurs de permission (403)."""
+    return JsonResponse({"detail": "Permission refusée. Vous n'avez pas les droits nécessaires pour effectuer cette action."}, status=403)
 
 @api_v1.exception_handler(Http404)
 def not_found(request, exc):
