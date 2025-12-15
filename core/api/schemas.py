@@ -20,7 +20,7 @@ class TokenSchema(Schema):
     access_token: str
     refresh_token: str
     token_type: str = "Bearer"
-    user: "UserDetailSchema"  # Forward ref, résolue à la fin
+    user: "UserSchema"
 
 
 class RefreshTokenSchema(Schema):
@@ -35,7 +35,7 @@ class ProfilOutSchema(ModelSchema):
     """Schéma de sortie pour le Profil (inclut l'URL de la photo)"""
     photo_profil: Optional[str] = None  # On expose l'URL
 
-    class Config:
+    class Meta:
         model = Profil
         fields = [
             'nom_complet', 'matricule', 'titre', 'statut_global',
@@ -53,7 +53,7 @@ class ProfilCreateSchema(Schema):
     nom_complet: str
     matricule: Optional[str] = None
     titre: Optional[str] = None
-    statut_global: str = "etudiant"
+    statut_global: Optional[str] = "etudiant"
     travailleur: Optional[bool] = False
     annee_sortie: Optional[int] = None
     telephone: Optional[str] = None
@@ -77,8 +77,22 @@ class ProfilUpdateSchema(Schema):
 # ==========================================
 # 3. Schémas Utilisateur complets
 # ==========================================
+
+class UserSchema(Schema):
+    """
+    Schéma retourné login
+    """
+    id: UUID4
+    email: str
+    role_systeme: str
+    est_actif: bool
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class UserDetailSchema(Schema):
-    """Schéma complet retourné après login ou get me"""
+    """Schéma complet retourné get me"""
     id: UUID4
     email: str
     role_systeme: str
@@ -96,8 +110,6 @@ class UserCreateAdminSchema(Schema):
     """Pour création par un admin"""
     email: str
     role_systeme: Optional[str] = "user"
-    generate_password: Optional[bool] = True
-
     profil: ProfilCreateSchema
 
 
@@ -116,7 +128,7 @@ class UserUpdateAdminSchema(Schema):
 class PhotoUploadResponseSchema(Schema):
     """Réponse après upload réussi de photo"""
     message: str = "Photo de profil mise à jour avec succès"
-    photo_profil_url: Optional[str] = None
+    photo_profil: Optional[str] = None
 
 
 class PhotoDeleteResponseSchema(Schema):
@@ -137,7 +149,5 @@ class UserFilterSchema(Schema):
     statut_global: Optional[str] = Field(None, description="Filtrer par statut (etudiant, alumni, etc.)")
     est_actif: Optional[bool] = Field(None, description="Filtrer par compte actif")
     travailleur: Optional[bool] = Field(None, description="Filtrer par statut travailleur")
-    page: Optional[int] = Field(1, ge=1, description="Page")
-    page_size: Optional[int] = Field(20, ge=1, le=100, description="Taille de page")
 
 

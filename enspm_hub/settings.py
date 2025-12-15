@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     
     "home",
     "core",
+    "feeds",
     "users",
     "organizations",
     "opportunities",

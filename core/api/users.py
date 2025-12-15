@@ -8,10 +8,9 @@ from django.db.models import Q
 from core.models import User
 from core.services.user_service import user_service
 from core.api.schemas import (
-    UserCreateSchema, 
-    UserUpdateSchema, 
-    UserListSchema, 
-    UserSchema,
+    UserCreateAdminSchema,
+    UserUpdateAdminSchema,
+    UserDetailSchema,
     UserFilterSchema,
     PhotoUploadResponseSchema
 )
@@ -26,43 +25,34 @@ users_router = Router(tags=["Utilisateurs"])
 # Configuration de la pagination
 # ==========================================
 class CustomPagination(PageNumberPagination):
-    page_size = 20  # Nombre d'éléments par page par défaut
-    page_size_query_param = "page_size"  # Paramètre pour changer la taille
-    max_page_size = 100  # Taille maximale autorisée
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 # ==========================================
 # Fonctions de Permissions 
 # ==========================================
-
 def is_admin(request: HttpRequest) -> bool:
-    """Vérifie si l'utilisateur a le role 'admin' ou 'super_admin'."""
-    return request.auth.role in ['admin', 'super_admin'] # type: ignore
+    """Vérifie si l'utilisateur a le rôle 'admin_site' ou 'super_admin'."""
+    user = request.auth # type: ignore
+    return user.role_systeme in ['admin_site', 'super_admin']
 
 def is_owner_or_admin(request: HttpRequest, user_id: str) -> bool:
-    """
-    Vérifie si l'utilisateur est le propriétaire de la ressource
-    OU s'il a le rôle admin/super_admin.
-    """
+    """Vérifie si l'utilisateur est le propriétaire ou un admin."""
     return str(request.auth.id) == user_id or is_admin(request) # type: ignore
 
 # ==========================================
 # Endpoints CRUD
 # ==========================================
-
 @users_router.post(
     "/",
-    response={201: UserSchema, 403: dict, 400: dict},
-    auth=jwt_auth,
+    response={201: UserDetailSchema, 403: dict, 400: dict},
+    auth=[jwt_auth],
     summary="Crée un nouvel utilisateur (admin uniquement)"
 )
-def create_user_endpoint(request: HttpRequest, payload: UserCreateSchema):
-    """
-    Crée un utilisateur. Réservé aux administrateurs (admin et super_admin).
-    """
-    # Vérification des permissions : seuls les admins peuvent créer
+def create_user_endpoint(request: HttpRequest, payload: UserCreateAdminSchema):
     if not is_admin(request):
-        return 403, {"detail": "Action non autorisée. Seuls les administrateurs peuvent créer des utilisateurs."}
-
+        return 403, {"detail": "Action non autorisée."}
     try:
         new_user = user_service.create_user(
             acting_user=request.auth, # type: ignore
@@ -75,82 +65,55 @@ def create_user_endpoint(request: HttpRequest, payload: UserCreateSchema):
 
 @users_router.get(
     "/",
-    response=List[UserListSchema],
+    response=List[UserDetailSchema],
     auth=jwt_auth,
     summary="Liste les utilisateurs avec filtres et pagination"
 )
 @paginate(CustomPagination)
-def list_users_endpoint(
-    request: HttpRequest, 
-    filters: Query[UserFilterSchema]
-):
-    """
-    Retourne une liste paginée d'utilisateurs avec recherche optimisée.
+def list_users_endpoint(request: HttpRequest, filters: Query[UserFilterSchema]):
+    users = User.objects.select_related('profil').filter(deleted=False)
     
-    La recherche globale (param 'search') cherche dans : nom, prenom, email, matricule.
-    Vous pouvez également filtrer par role, statut, est_actif, travailleur.
-    """
-    # Requête de base : seulement les utilisateurs actifs et non supprimés
-    users = User.objects.filter(est_actif=True, deleted=False)
-    search = filters.search
-    role = filters.role
-    statut = filters.statut
-    est_actif = filters.est_actif
-    travailleur = filters.travailleur
-    # Recherche globale optimisée avec Q objects
-    if search:
-        search_query = Q(nom__icontains=search) | \
-                      Q(prenom__icontains=search) | \
-                      Q(email__icontains=search) | \
-                      Q(matricule__icontains=search)
-        users = users.filter(search_query)
-    
-    # Filtres spécifiques
-    if role:
-        users = users.filter(role=role)
-    if statut:
-        users = users.filter(statut=statut)
-    if est_actif is not None:
-        users = users.filter(est_actif=est_actif)
-    if travailleur is not None:
-        users = users.filter(travailleur=travailleur)
+    if filters.search:
+        users = users.filter(
+            Q(profil__nom_complet__icontains=filters.search) |
+            Q(email__icontains=filters.search) |
+            Q(profil__matricule__icontains=filters.search)
+        )
+    if filters.role_systeme:
+        users = users.filter(role_systeme=filters.role_systeme)
+    if filters.statut_global:
+        users = users.filter(profil__statut_global=filters.statut_global)
+    if filters.est_actif is not None:
+        users = users.filter(est_actif=filters.est_actif)
+    if filters.travailleur is not None:
+        users = users.filter(profil__travailleur=filters.travailleur)
 
-    # Optimisation : sélection uniquement des champs nécessaires
-    users = users.only('id', 'nom', 'prenom', 'email', 'statut', 'travailleur', 'photo_profile', 'role', 'est_actif')
-    
-    return users.order_by('nom', 'prenom')
+    return users.order_by('profil__nom_complet')
 
 @users_router.get(
     "/{user_id}",
-    response={200: UserSchema, 404: dict},
+    response={200: UserDetailSchema, 404: dict},
     auth=jwt_auth,
     summary="Récupère un utilisateur par son ID"
 )
 def get_user_endpoint(request: HttpRequest, user_id: str):
-    """Retourne les détails d'un utilisateur spécifique."""
-    user = get_object_or_404(User, id=user_id, deleted=False)
+    user = get_object_or_404(User.objects.select_related('profil'), id=user_id, deleted=False)
     return 200, user
 
 @users_router.put(
     "/{user_id}",
-    response={200: UserSchema, 403: dict, 404: dict, 400: dict},
+    response={200: UserDetailSchema, 403: dict, 404: dict, 400: dict},
     auth=jwt_auth,
     summary="Met à jour un utilisateur"
 )
-def update_user_endpoint(request: HttpRequest, user_id: str, payload: UserUpdateSchema):
-    """
-    Met à jour un utilisateur. 
-    Autorisé pour : le propriétaire du compte OU un administrateur.
-    """
-    # Vérification des permissions
+def update_user_endpoint(request: HttpRequest, user_id: str, payload: UserUpdateAdminSchema):
     if not is_owner_or_admin(request, user_id):
-        return 403, {"detail": "Action non autorisée. Vous ne pouvez modifier que votre propre profil."}
+        return 403, {"detail": "Action non autorisée."}
 
     user_to_update = get_object_or_404(User, id=user_id, deleted=False)
 
-    # Sécurité : seuls les admins peuvent modifier le rôle
-    if 'role' in payload.dict(exclude_unset=True) and not is_admin(request):
-        return 403, {"detail": "Seuls les administrateurs peuvent modifier le rôle d'un utilisateur."}
+    if 'role_systeme' in payload.dict(exclude_unset=True) and not is_admin(request):
+        return 403, {"detail": "Seuls les administrateurs peuvent modifier le rôle."}
 
     try:
         updated_user = user_service.update_user(
@@ -170,16 +133,10 @@ def update_user_endpoint(request: HttpRequest, user_id: str, payload: UserUpdate
     summary="Supprime (soft delete) un utilisateur"
 )
 def delete_user_endpoint(request: HttpRequest, user_id: str):
-    """
-    Supprime un utilisateur (soft delete). 
-    Autorisé pour : le propriétaire du compte OU un administrateur.
-    """
-    # Vérification des permissions
     if not is_owner_or_admin(request, user_id):
         return 403, {"detail": "Action non autorisée."}
 
     user_to_delete = get_object_or_404(User, id=user_id, deleted=False)
-
     user_service.soft_delete_user(
         acting_user=request.auth, # type: ignore
         user_to_delete=user_to_delete,
@@ -209,9 +166,8 @@ def upload_profile_photo(
     Formats acceptés : JPG, JPEG, PNG, WEBP
     Taille maximale : 5 MB
     """
-    # Vérification des permissions
     if not is_owner_or_admin(request, user_id):
-        return 403, {"detail": "Action non autorisée. Vous ne pouvez modifier que votre propre photo."}
+        return 403, {"detail": "Action non autorisée."}
 
     user = get_object_or_404(User, id=user_id, deleted=False)
 
@@ -225,7 +181,7 @@ def upload_profile_photo(
         
         return 200, {
             "message": "Photo de profil mise à jour avec succès",
-            "photo_url": updated_user.photo_profile.url if updated_user.photo_profile else None
+            "photo_profil_url": updated_user.profil.photo_profil.url if updated_user.profil.photo_profil else None # type: ignore
         }
     except ValueError as e:
         return 400, {"detail": str(e)}
@@ -241,7 +197,6 @@ def delete_profile_photo(request: HttpRequest, user_id: str):
     Supprime la photo de profil d'un utilisateur.
     Autorisé pour : le propriétaire du compte OU un administrateur.
     """
-    # Vérification des permissions
     if not is_owner_or_admin(request, user_id):
         return 403, {"detail": "Action non autorisée."}
 

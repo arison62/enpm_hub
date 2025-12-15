@@ -7,7 +7,7 @@ from django.utils.crypto import get_random_string
 from django.core.files.uploadedfile import UploadedFile
 from django.core.files.storage import default_storage
 from django.conf import settings
-from core.models import User
+from core.models import User, Profil
 from core.services.audit_service import audit_log_service, AuditLog
 from core.services.email_service import EmailTemplates
 from PIL import Image
@@ -20,45 +20,34 @@ class UserService:
     Service contenant la logique métier pour la gestion des utilisateurs.
     """
     
-    # Configuration pour les photos de profil
     ALLOWED_PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
-    MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5 MB
-    PHOTO_MAX_DIMENSIONS = (800, 800)  # Redimensionner les images trop grandes
+    MAX_PHOTO_SIZE = 5 * 1024 * 1024
+    PHOTO_MAX_DIMENSIONS = (800, 800)
 
     @staticmethod
     @transaction.atomic
     def create_user(acting_user: User, user_data: dict, request=None) -> User:
-        """
-        Crée un nouvel utilisateur, génère un mot de passe aléatoire
-        et enregistre l'action dans le journal d'audit.
-        """
-        # Validation : vérifier que l'email n'existe pas déjà
         if User.objects.filter(email=user_data.get('email')).exists():
             raise ValueError(f"Un utilisateur avec l'email {user_data.get('email')} existe déjà.")
-        
-        # Validation : vérifier que le matricule n'existe pas (si fourni)
-        if user_data.get('matricule') and User.objects.filter(matricule=user_data.get('matricule')).exists():
-            raise ValueError(f"Un utilisateur avec le matricule {user_data.get('matricule')} existe déjà.")
 
-        # Génération d'un mot de passe aléatoire et sécurisé
+        profil_data = user_data.pop('profil', {})
+        if not profil_data.get('nom_complet'):
+            raise ValueError("Le nom complet est requis pour la création du profil.")
+
         random_password = get_random_string(12)
-        password_hash = make_password(random_password)
-        user_data['password'] = password_hash
+        user_data['password'] = make_password(random_password)
 
-        # Logique métier : le personnel technique doit avoir accès à l'admin Django
-        if user_data.get('statut') == 'personnel_technique':
+        if user_data.get('role_systeme') in ['admin_site', 'super_admin']:
             user_data['is_staff'] = True
 
-        # Création de l'utilisateur
         new_user = User.objects.create(**user_data)
+        Profil.objects.create(user=new_user, **profil_data)
+
         logger.info(f"Nouvel utilisateur créé (ID: {new_user.id}) par {acting_user.email}.")
 
-        # Préparation des données pour l'audit (SANS le mot de passe)
-        audit_data = user_data.copy()
+        audit_data = {**user_data, 'profil': profil_data}
         audit_data.pop('password', None)
-        audit_data['generated_password'] = random_password  # Pour envoi par email
 
-        # Audit Log
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.CREATE,
@@ -67,64 +56,28 @@ class UserService:
             request=request,
             new_values=audit_data
         )
-
-        # TODO: Envoyer le mot de passe par email à l'utilisateur
-        # try:
-        #     user_full_name = f"{new_user.titre or ''} {new_user.prenom or ''} {new_user.nom}".strip()
-        #     EmailTemplates.send_welcome_email(
-        #         user_email=new_user.email,
-        #         user_name=user_full_name,
-        #         temp_password=random_password
-        #     )
-        #     logger.info(f"Email de bienvenue envoyé à {new_user.email}")
-        # except Exception as e:
-        #     logger.error(f"Erreur lors de l'envoi de l'email de bienvenue à {new_user.email}: {str(e)}")
-        #     # On ne bloque pas la création même si l'email échoue
-
         return new_user
 
     @staticmethod
     @transaction.atomic
     def update_user(acting_user: User, user_to_update: User, data_update: dict, request=None) -> User:
-        """
-        Met à jour un utilisateur et enregistre les modifications dans l'audit log.
-        """
-        # Validation : vérifier l'unicité de l'email si modifié
-        if 'email' in data_update:
-            existing_user = User.objects.filter(email=data_update['email']).exclude(id=user_to_update.id).first()
-            if existing_user:
-                raise ValueError(f"L'email {data_update['email']} est déjà utilisé par un autre utilisateur.")
-        
-        # Validation : vérifier l'unicité du matricule si modifié
-        if 'matricule' in data_update and data_update['matricule']:
-            existing_user = User.objects.filter(matricule=data_update['matricule']).exclude(id=user_to_update.id).first()
-            if existing_user:
-                raise ValueError(f"Le matricule {data_update['matricule']} est déjà utilisé par un autre utilisateur.")
+        profil_data = data_update.pop('profil', None)
+        old_values = {}
 
-        # Sauvegarde des anciennes valeurs pour l'audit
-        old_values = {field: getattr(user_to_update, field) for field in data_update.keys()}
-
-        # Mise à jour des champs
-        for field, value in data_update.items():
-            if field == 'password':
-                # Cas spécial pour le mot de passe
-                if value:
-                    user_to_update.set_password(value)
-            else:
+        if data_update:
+            for field, value in data_update.items():
+                old_values[field] = getattr(user_to_update, field)
                 setattr(user_to_update, field, value)
+            user_to_update.save()
 
-        # Logique métier : synchroniser is_staff avec le statut
-        if 'statut' in data_update:
-            user_to_update.is_staff = (data_update['statut'] == 'personnel_technique')
+        if profil_data:
+            profil, _ = Profil.objects.get_or_create(user=user_to_update)
+            for field, value in profil_data.items():
+                old_values[f'profil__{field}'] = getattr(profil, field)
+                setattr(profil, field, value)
+            profil.save()
 
-        user_to_update.save()
         logger.info(f"Utilisateur (ID: {user_to_update.id}) mis à jour par {acting_user.email}.")
-
-        # Audit Log (sans le mot de passe)
-        audit_data = data_update.copy()
-        if 'password' in audit_data:
-            audit_data['password'] = '***HIDDEN***'
-
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.UPDATE,
@@ -132,159 +85,97 @@ class UserService:
             entity_id=user_to_update.id,
             request=request,
             old_values=old_values,
-            new_values=audit_data
+            new_values=data_update
         )
-
         return user_to_update
 
     @staticmethod
     @transaction.atomic
     def soft_delete_user(acting_user: User, user_to_delete: User, request=None):
-        """
-        Effectue une suppression logique (soft delete) d'un utilisateur.
-        """
         user_to_delete.soft_delete()
         logger.info(f"Utilisateur (ID: {user_to_delete.id}) supprimé (soft delete) par {acting_user.email}.")
-
-        # Audit Log
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.DELETE,
             entity_type='User',
             entity_id=user_to_delete.id,
-            request=request,
-            old_values={'id': str(user_to_delete.id), 'deleted': False}
+            request=request
         )
 
     @staticmethod
-    def _validate_photo(photo_file: UploadedFile) -> None:
-        """
-        Valide le fichier photo uploadé.
-        Vérifie : extension, taille, format image valide.
-        """
-        # Vérifier l'extension
+    def _validate_photo(photo_file: UploadedFile):
+        if not photo_file:
+            raise ValueError("Aucun fichier n'a été fourni.")
         file_ext = os.path.splitext(photo_file.name)[1].lower()
         if file_ext not in UserService.ALLOWED_PHOTO_EXTENSIONS:
-            raise ValueError(
-                f"Format de fichier non autorisé. Formats acceptés : {', '.join(UserService.ALLOWED_PHOTO_EXTENSIONS)}"
-            )
-
-        # Vérifier la taille
+            raise ValueError(f"Format de fichier non autorisé. Acceptés : {', '.join(UserService.ALLOWED_PHOTO_EXTENSIONS)}")
         if photo_file.size > UserService.MAX_PHOTO_SIZE:
-            max_size_mb = UserService.MAX_PHOTO_SIZE / (1024 * 1024)
-            raise ValueError(f"La taille du fichier dépasse {max_size_mb} MB.")
-
-        # Vérifier que c'est une image valide
+            raise ValueError(f"La taille du fichier dépasse {UserService.MAX_PHOTO_SIZE / (1024*1024)} MB.")
         try:
-            image = Image.open(photo_file)
-            image.verify()
+            Image.open(photo_file).verify()
         except Exception:
             raise ValueError("Le fichier n'est pas une image valide.")
 
     @staticmethod
     def _optimize_photo(photo_file: UploadedFile) -> BytesIO:
-        """
-        Optimise la photo : redimensionne si nécessaire et compresse.
-        Retourne un objet BytesIO contenant l'image optimisée.
-        """
         image = Image.open(photo_file)
-        
-        # Convertir en RGB si nécessaire (pour PNG avec transparence)
         if image.mode in ('RGBA', 'LA', 'P'):
-            background = Image.new('RGB', image.size, (255, 255, 255))
-            if image.mode == 'P':
-                image = image.convert('RGBA')
-            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-            image = background
-
-        # Redimensionner si l'image est trop grande
+            image = image.convert('RGB')
         image.thumbnail(UserService.PHOTO_MAX_DIMENSIONS, Image.Resampling.LANCZOS)
-
-        # Sauvegarder dans un buffer
         output = BytesIO()
-        image.save(output, format='JPEG', quality=85, optimize=True)
+        image.save(output, format='JPEG', quality=85)
         output.seek(0)
-        
         return output
 
     @staticmethod
     @transaction.atomic
     def upload_profile_photo(acting_user: User, user: User, photo_file: UploadedFile, request=None) -> User:
-        """
-        Upload ou met à jour la photo de profil d'un utilisateur.
-        Supprime l'ancienne photo si elle existe.
-        """
-        # Validation du fichier
         UserService._validate_photo(photo_file)
+        profil, _ = Profil.objects.get_or_create(user=user)
 
-        # Supprimer l'ancienne photo si elle existe
-        if user.photo_profile:
-            old_photo_path = user.photo_profile.path
-            if os.path.exists(old_photo_path):
-                os.remove(old_photo_path)
-                logger.info(f"Ancienne photo supprimée : {old_photo_path}")
+        if profil.photo_profil and profil.photo_profil.path and os.path.exists(profil.photo_profil.path):
+            os.remove(profil.photo_profil.path)
 
-        # Optimiser l'image
         optimized_photo = UserService._optimize_photo(photo_file)
+        file_name = f"profile_{user.id}.jpg"
+        saved_path = default_storage.save(os.path.join('photos_profils', file_name), optimized_photo)
 
-        # Générer un nom de fichier unique basé sur l'ID utilisateur
-        file_ext = '.jpg'  # Toujours JPEG après optimisation
-        file_name = f"profile_{user.id}{file_ext}"
-        file_path = os.path.join('profils', file_name)
+        profil.photo_profil = saved_path # type: ignore
+        profil.save()
 
-        # Sauvegarder le fichier
-        saved_path = default_storage.save(file_path, optimized_photo)
-        user.photo_profile = saved_path # type: ignore
-        user.save()
-
-        logger.info(f"Photo de profil mise à jour pour l'utilisateur {user.id} par {acting_user.email}.")
-
-        # Audit Log
+        logger.info(f"Photo de profil mise à jour pour {user.id} par {acting_user.email}.")
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.UPDATE,
-            entity_type='User',
-            entity_id=user.id,
+            entity_type='Profil',
+            entity_id=profil.id,
             request=request,
-            new_values={'photo_profile': saved_path}
+            new_values={'photo_profil': saved_path}
         )
-
         return user
 
     @staticmethod
     @transaction.atomic
-    def delete_profile_photo(acting_user: User, user: User, request=None) -> User:
-        """
-        Supprime la photo de profil d'un utilisateur.
-        """
-        if not user.photo_profile:
-            logger.warning(f"Tentative de suppression de photo inexistante pour l'utilisateur {user.id}.")
+    def delete_profile_photo(acting_user: User, user: User, request=None):
+        profil = getattr(user, 'profil', None)
+        if not profil or not profil.photo_profil:
             return user
 
-        # Supprimer le fichier physique
-        photo_path = user.photo_profile.path
-        if os.path.exists(photo_path):
-            os.remove(photo_path)
-            logger.info(f"Photo supprimée : {photo_path}")
+        if profil.photo_profil.path and os.path.exists(profil.photo_profil.path):
+            os.remove(profil.photo_profil.path)
 
-        old_photo = user.photo_profile.name
-        user.photo_profile = None # type: ignore
-        user.save()
+        profil.photo_profil = None
+        profil.save()
 
-        logger.info(f"Photo de profil supprimée pour l'utilisateur {user.id} par {acting_user.email}.")
-
-        # Audit Log
+        logger.info(f"Photo de profil de {user.id} supprimée par {acting_user.email}.")
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.UPDATE,
-            entity_type='User',
-            entity_id=user.id,
+            entity_type='Profil',
+            entity_id=profil.id,
             request=request,
-            old_values={'photo_profile': old_photo},
-            new_values={'photo_profile': None}
+            new_values={'photo_profil': None}
         )
-
         return user
 
-# Instanciation du service pour une utilisation facile
 user_service = UserService()

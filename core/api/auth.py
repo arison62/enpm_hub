@@ -3,11 +3,12 @@ from ninja import Router
 from django.http import HttpRequest
 from core.services.auth_service import AuthService, jwt_auth
 from django.views.decorators.csrf import csrf_exempt
-from core.api.schemas import LoginSchema, TokenSchema, UserSchema, RefreshTokenSchema
+from core.api.schemas import LoginSchema, TokenSchema, UserDetailSchema, RefreshTokenSchema
 from ninja.security import django_auth
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from ninja.errors import HttpError
+from core.models import User
 
 # Création du Router
 auth_router = Router(tags=["Authentification"])
@@ -15,15 +16,14 @@ auth_router = Router(tags=["Authentification"])
 @auth_router.post(
     "/login", 
     response={200: TokenSchema, 401: dict}, 
-    summary="Authentification par Matricule ou Email"
+    summary="Authentification par Email"
 )
 def login_endpoint(request: HttpRequest, payload: LoginSchema):
     """
     Connecte l'utilisateur en créant une session (pour Inertia) et des tokens JWT (pour React).
     """
     # 1. Appel du Service Layer (logique métier dans AuthService)
-    auth_data = AuthService.login_user(request, payload.login_id, payload.password)
-    
+    auth_data = AuthService.login_user(request, payload.email, payload.password)
     # 2. Gestion des erreurs et de la réponse
     if auth_data is None:
         return 401, {"detail": "Identifiant ou mot de passe invalide."}
@@ -59,41 +59,28 @@ def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
     try:
         refresh = RefreshToken(payload.refresh) # type: ignore
 
-        # La rotation est gérée automatiquement si `ROTATE_REFRESH_TOKENS` est à True.
-        # Le simple fait d'accéder à `refresh.access_token` peut suffire si
-        # la rotation est la seule chose que l'on souhaite.
-        # Pour être explicite et clair, nous allons créer les nouveaux tokens.
-
         new_access_token = str(refresh.access_token)
         new_refresh_token = str(refresh)
 
-        # Note : Le `user_id` et le `role` sont extraits du token.
-        # simple-jwt ajoute automatiquement ces infos si le User model est standard.
-        # Pour notre modèle custom, vérifions que les claims sont bien là.
         user_id = refresh.get('user_id')
-
-        # On doit récupérer le rôle depuis la BDD pour être sûr qu'il est à jour.
-        from core.models import User
         try:
-            user = User.objects.get(id=user_id)
-            role = user.role
+            user = User.objects.select_related('profil').get(id=user_id)
         except User.DoesNotExist:
             return 401, {"detail": "L'utilisateur associé à ce token n'existe plus."}
 
         return 200, {
             "access_token": new_access_token,
             "refresh_token": new_refresh_token,
-            "user_id": str(user_id),
-            "role": role
+            "user": user
         }
 
     except TokenError as e:
-        # Le refresh token est invalide, expiré ou a déjà été utilisé
         return 401, {"detail": f"Token de rafraîchissement invalide ou expiré. {str(e)}"}
+
 
 @auth_router.get(
     "/me", 
-    response={200: UserSchema, 401: dict}, 
+    response={200: UserDetailSchema, 401: dict},
     auth=[jwt_auth, django_auth], # Accès par JWT (API) ou Session (Template/Inertia)
     summary="Récupère les informations de l'utilisateur connecté"
 )

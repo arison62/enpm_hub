@@ -22,7 +22,7 @@ class Stage(ENSPMHubBaseModel):
     ]
 
     createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('core.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
+    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
     titre = models.CharField(max_length=255)
     lieu = models.CharField(max_length=150)
     nom_structure = models.CharField(max_length=255)
@@ -53,7 +53,7 @@ class Emploi(ENSPMHubBaseModel):
     ]
 
     createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('core.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
+    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
     titre = models.CharField(max_length=255)
     lieu = models.CharField(max_length=150)
     nom_structure = models.CharField(max_length=255)
@@ -79,7 +79,7 @@ class Formation(ENSPMHubBaseModel):
     ]
 
     createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('core.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
+    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
     titre = models.CharField(max_length=255)
     lieu = models.CharField(max_length=150, null=True, blank=True)
     nom_structure = models.CharField(max_length=255)
