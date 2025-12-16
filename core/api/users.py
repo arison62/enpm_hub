@@ -12,7 +12,9 @@ from core.api.schemas import (
     UserUpdateAdminSchema,
     UserDetailSchema,
     UserFilterSchema,
-    PhotoUploadResponseSchema
+    PhotoUploadResponseSchema,
+    MessageSchema,
+    ValidationErrorSchema
 )
 from core.services.auth_service import jwt_auth
 
@@ -46,7 +48,7 @@ def is_owner_or_admin(request: HttpRequest, user_id: str) -> bool:
 # ==========================================
 @users_router.post(
     "/",
-    response={201: UserDetailSchema, 403: dict, 400: dict},
+    response={201: UserDetailSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 422: ValidationErrorSchema},
     auth=[jwt_auth],
     summary="Crée un nouvel utilisateur (admin uniquement)"
 )
@@ -65,7 +67,7 @@ def create_user_endpoint(request: HttpRequest, payload: UserCreateAdminSchema):
 
 @users_router.get(
     "/",
-    response=List[UserDetailSchema],
+    response={200: List[UserDetailSchema], 401: MessageSchema, 422: ValidationErrorSchema},
     auth=jwt_auth,
     summary="Liste les utilisateurs avec filtres et pagination"
 )
@@ -92,7 +94,7 @@ def list_users_endpoint(request: HttpRequest, filters: Query[UserFilterSchema]):
 
 @users_router.get(
     "/{user_id}",
-    response={200: UserDetailSchema, 404: dict},
+    response={200: UserDetailSchema, 401: MessageSchema, 404: MessageSchema},
     auth=jwt_auth,
     summary="Récupère un utilisateur par son ID"
 )
@@ -102,7 +104,7 @@ def get_user_endpoint(request: HttpRequest, user_id: str):
 
 @users_router.put(
     "/{user_id}",
-    response={200: UserDetailSchema, 403: dict, 404: dict, 400: dict},
+    response={200: UserDetailSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema, 422: ValidationErrorSchema},
     auth=jwt_auth,
     summary="Met à jour un utilisateur"
 )
@@ -128,7 +130,7 @@ def update_user_endpoint(request: HttpRequest, user_id: str, payload: UserUpdate
 
 @users_router.delete(
     "/{user_id}",
-    response={204: None, 403: dict, 404: dict},
+    response={204: None, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
     auth=jwt_auth,
     summary="Supprime (soft delete) un utilisateur"
 )
@@ -150,7 +152,7 @@ def delete_user_endpoint(request: HttpRequest, user_id: str):
 
 @users_router.post(
     "/{user_id}/photo",
-    response={200: PhotoUploadResponseSchema, 403: dict, 404: dict, 400: dict},
+    response={200: PhotoUploadResponseSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
     auth=jwt_auth,
     summary="Upload ou met à jour la photo de profil"
 )
@@ -188,7 +190,7 @@ def upload_profile_photo(
 
 @users_router.delete(
     "/{user_id}/photo",
-    response={204: None, 403: dict, 404: dict},
+    response={204: None, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
     auth=jwt_auth,
     summary="Supprime la photo de profil"
 )

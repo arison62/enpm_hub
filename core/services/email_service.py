@@ -185,6 +185,20 @@ class EmailTemplates:
         )
     
     @staticmethod
+    def send_password_recovery_email(user_email: str, user_name: str, temp_password: str):
+        """Envoie un email avec le nouveau mot de passe temporaire."""
+        EmailService.send_email_async(
+            subject="Votre nouveau mot de passe temporaire pour ENSPM Hub",
+            to_emails=[user_email],
+            template_name='emails/password_recovery.html',
+            context={
+                'user_name': user_name,
+                'temp_password': temp_password,
+                'login_url': f"{settings.SITE_URL}/login"
+            }
+        )
+
+    @staticmethod
     def send_account_activated_email(user_email: str, user_name: str):
         """Envoie un email de confirmation d'activation de compte."""
         EmailService.send_email_async(
