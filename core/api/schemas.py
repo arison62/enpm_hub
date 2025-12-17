@@ -43,7 +43,7 @@ class ProfilOutSchema(ModelSchema):
     class Meta:
         model = Profil
         fields = [
-            'nom_complet', 'matricule', 'titre', 'statut_global',
+            'id', 'nom_complet', 'matricule', 'titre', 'statut_global',
             'travailleur', 'annee_sortie', 'telephone', 'domaine',
             'bio', 'photo_profil'
         ]

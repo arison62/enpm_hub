@@ -136,12 +136,15 @@ def delete_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 # Endpoints Gestion des Membres
 # ==========================================
 
+
 @organizations_router.get(
     "/{org_id}/members",
     response=List[MembreOrganisationOutSchema],
     summary="Lister les membres d'une organisation"
 )
+@paginate
 def list_members_endpoint(request: HttpRequest, org_id: UUID4):
+    print(membre_service.list_membres(org_id))
     return membre_service.list_membres(org_id)
 
 @organizations_router.post(

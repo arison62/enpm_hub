@@ -42,19 +42,24 @@ class OrganisationService:
     def create_organisation(acting_user: User, data: Dict) -> Organisation:
         """
         Creates a new organisation proposed by a user.
-        The organisation is created with a 'pending' status by default.
+        - If created by a site admin, status is 'active' and the admin is NOT automatically added as a member.
+        - Otherwise, status is 'en_attente' and the creator is added as page admin.
         """
-        # Any authenticated user can create an organisation proposal.
-        # The first member (the creator) is automatically added as a page admin.
-        new_organisation = Organisation.objects.create(statut='en_attente', **data)
+        # Déterminer le statut initial basé sur le rôle de l'acting_user
+        initial_status = 'active' if OrganisationService._is_site_admin(acting_user) else 'en_attente'
+        
+        new_organisation = Organisation.objects.create(statut=initial_status, **data)
 
-        MembreOrganisation.objects.create(
-            profil=acting_user.profil,
-            organisation=new_organisation,
-            role_organisation='administrateur_page',
-            poste="Créateur de la page",
-            est_actif=True
-        )
+        # Ajouter le créateur comme admin page SEULEMENT s'il n'est PAS un admin du site
+        if not OrganisationService._is_site_admin(acting_user):
+            MembreOrganisation.objects.create(
+                profil=acting_user.profil,
+                organisation=new_organisation,
+                role_organisation='administrateur_page',
+                poste="Créateur de la page",
+                est_actif=True
+            )
+        
         return new_organisation
 
     @staticmethod

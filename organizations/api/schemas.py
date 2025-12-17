@@ -1,9 +1,11 @@
 # organizations/api/schemas.py
-from ninja import Schema, ModelSchema
-from typing import Optional, List
+from ninja.schema import Schema
+from ninja import ModelSchema
+from ninja.orm import create_schema
+from typing import Optional
 from datetime import date
 from pydantic import UUID4
-from core.models import User
+from core.api.schemas import ProfilOutSchema
 from organizations.models import Organisation, MembreOrganisation, AbonnementOrganisation
 
 class OrganisationOutSchema(ModelSchema):
@@ -44,10 +46,13 @@ class OrganisationUpdateSchema(Schema):
 class OrganisationStatusUpdateSchema(Schema):
     statut: str
 
-class MembreOrganisationOutSchema(ModelSchema):
-    class Meta:
-        model = MembreOrganisation
-        fields = "__all__"
+MembreOrganisationOutSchema = create_schema(
+    model = MembreOrganisation,
+    name = "MembreOrganisationOutSchema",
+    fields = ['profil', 'role_organisation', 'poste', 'date_joindre'],
+    depth = 1,
+)
+
 
 class MembreOrganisationCreateSchema(Schema):
     profil_id: UUID4
@@ -59,10 +64,11 @@ class MembreOrganisationUpdateSchema(Schema):
     poste: Optional[str] = None
     est_actif: Optional[bool] = None
 
-class AbonnementOrganisationOutSchema(ModelSchema):
-    class Meta:
-        model = AbonnementOrganisation
-        fields = "__all__"
+AbonnementOrganisationOutSchema = create_schema(
+    model = AbonnementOrganisation,
+    name = "AbonnementOrganisationOutSchema",
+    fields = ['profil', 'date_abonnement'],
+)
 
 class LogoUploadResponseSchema(Schema):
     """Réponse après upload réussi de logo"""

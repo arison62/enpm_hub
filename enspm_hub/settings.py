@@ -205,8 +205,8 @@ AUTHENTICATION_BACKENDS = [
 from django.utils.timezone import timedelta
 SIMPLE_JWT = {
    "USER_ID_CLAIM": "user_id",
-   'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+   'ACCESS_TOKEN_LIFETIME': timedelta(days=90),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=180),
     'ROTATE_REFRESH_TOKENS': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': env('SECRET_KEY')
