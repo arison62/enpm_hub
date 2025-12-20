@@ -9,6 +9,7 @@ export type Profil = {
   telephone: string | null;
   domaine: string | null;
   bio: string | null;
+  photo_profil: string | null;
   created_at: string;
   updated_at: string;
 };
