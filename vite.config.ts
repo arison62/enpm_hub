@@ -41,6 +41,13 @@ export default defineConfig(({ mode }): UserConfig => {
       watch: {
         usePolling: true,
       },
+      proxy: {
+        '/assets': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        }
+      }
     },
 
     // Configuration du build (production)

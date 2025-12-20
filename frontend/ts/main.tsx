@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import axios from "axios";
+import axios from "@/lib/axios";
 
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { createInertiaApp } from "@inertiajs/react";
-
+import {Toaster} from  "@/components/ui/sonner";
 import "../main.css";
 
 const pages = import.meta.glob("./pages/**/*.tsx");
@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
       createRoot(el).render(
         <StrictMode>
           <App {...props} />
+          <Toaster position="top-center"/>
         </StrictMode>
       );
     },
