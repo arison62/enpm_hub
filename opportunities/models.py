@@ -4,108 +4,312 @@ from core.models import ENSPMHubBaseModel
 from django.utils.translation import gettext_lazy as _
 
 
-# ==========================================
-# 7. OFFRES & FORMATIONS
-# ==========================================
-# Stages, Emplois, Formations
 class Stage(ENSPMHubBaseModel):
+    """Modèle pour les offres de stage"""
     TYPE_STAGE_CHOICES = [
-        ('ouvrier', 'Ouvrier'), 
-        ('academique', 'Académique'), 
+        ('ouvrier', 'Ouvrier'),
+        ('academique', 'Académique'),
         ('professionnel', 'Professionnel')
     ]
     
     STATUT_CHOICES = [
-        ('active', 'Active'), 
-        ('expiree', 'Expirée'), 
-        ('pourvue', 'Pourvue')
+        ('en_attente', 'En attente de validation'),
+        ('active', 'Active'),
+        ('expiree', 'Expirée'),
+        ('pourvue', 'Pourvue'),
+        ('rejetee', 'Rejetée')
     ]
 
-    createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
-    titre = models.CharField(max_length=255)
-    lieu = models.CharField(max_length=150)
-    nom_structure = models.CharField(max_length=255)
-    description = models.TextField()
-    type_stage = models.CharField(max_length=20, choices=TYPE_STAGE_CHOICES)
-    email_contact = models.EmailField(null=True, blank=True)
-    telephone_contact = models.CharField(max_length=20, null=True, blank=True)
-    lien_offre_original = models.URLField(null=True, blank=True)
-    lien_candidature = models.URLField(null=True, blank=True)
-    date_debut = models.DateField(null=True, blank=True)
-    date_fin = models.DateField(null=True, blank=True)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='active')
+    # Relations
+    createur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='stages_crees',
+        verbose_name=_("Créateur")
+    )
+    organisation = models.ForeignKey(
+        'organizations.Organisation',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='stages',
+        verbose_name=_("Organisation")
+    )
+    
+    # Informations principales
+    titre = models.CharField(max_length=255, verbose_name=_("Titre du stage"))
+    slug = models.SlugField(
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Slug"),
+        help_text=_("Identifiant unique pour les URLs")
+    )
+    nom_structure = models.CharField(max_length=255, verbose_name=_("Nom de la structure"))
+    description = models.TextField(verbose_name=_("Description"))
+    type_stage = models.CharField(max_length=20, choices=TYPE_STAGE_CHOICES, verbose_name=_("Type de stage"))
+    
+    # Localisation
+    lieu = models.CharField(max_length=150, verbose_name=_("Lieu"))
+    ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
+    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    
+    # Contact
+    email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
+    telephone_contact = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
+    
+    # Liens
+    lien_offre_original = models.URLField(null=True, blank=True, verbose_name=_("Lien offre originale"))
+    lien_candidature = models.URLField(null=True, blank=True, verbose_name=_("Lien candidature"))
+    
+    # Dates
+    date_debut = models.DateField(null=True, blank=True, verbose_name=_("Date de début"))
+    date_fin = models.DateField(null=True, blank=True, verbose_name=_("Date de fin"))
+    date_publication = models.DateTimeField(auto_now_add=True, verbose_name=_("Date de publication"))
+    
+    # Statut et validation
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
+    est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
+    validateur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='stages_valides',
+        verbose_name=_("Validateur")
+    )
+    date_validation = models.DateTimeField(null=True, blank=True, verbose_name=_("Date de validation"))
+    commentaire_validation = models.TextField(null=True, blank=True, verbose_name=_("Commentaire de validation"))
 
     class Meta:
+        verbose_name = _("Stage")
+        verbose_name_plural = _("Stages")
         db_table = 'stage'
+        ordering = ['-date_publication']
+
+    def __str__(self):
+        return self.titre
 
 
 class Emploi(ENSPMHubBaseModel):
-    TYPE_EMPLOI_CHOICES = [  # À compléter selon besoins réels
+    """Modèle pour les offres d'emploi"""
+    TYPE_EMPLOI_CHOICES = [
         ('temps_plein_terrain', 'Temps plein terrain'),
         ('temps_partiel_terrain', 'Temps partiel terrain'),
-        ('temps_plein_ligne', 'Temps plein ligne'),
+        ('temps_plein_ligne', 'Temps plein en ligne'),
+        ('temps_partiel_ligne', 'Temps partiel en ligne'),
+        ('freelance', 'Freelance'),
+        ('contrat', 'Contrat')
     ]
+    
     STATUT_CHOICES = [
+        ('en_attente', 'En attente de validation'),
         ('active', 'Active'),
-        ('expiree', 'Expirée'), 
-        ('pourvue', 'Pourvue')
+        ('expiree', 'Expirée'),
+        ('pourvue', 'Pourvue'),
+        ('rejetee', 'Rejetée')
     ]
 
-    createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
-    titre = models.CharField(max_length=255)
-    lieu = models.CharField(max_length=150)
-    nom_structure = models.CharField(max_length=255)
-    description = models.TextField()
-    type_emploi = models.CharField(max_length=40, choices=TYPE_EMPLOI_CHOICES, null=True, blank=True)
-    email_contact = models.EmailField(null=True, blank=True)
-    telephone_contact = models.CharField(max_length=20, null=True, blank=True)
-    lien_offre_original = models.URLField(null=True, blank=True)
-    lien_candidature = models.URLField(null=True, blank=True)
-    date_publication = models.DateField(auto_now_add=True)
-    date_expiration = models.DateField(null=True, blank=True)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='active')
+    # Relations
+    createur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='emplois_crees',
+        verbose_name=_("Créateur")
+    )
+    organisation = models.ForeignKey(
+        'organizations.Organisation',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='emplois',
+        verbose_name=_("Organisation")
+    )
+    
+    # Informations principales
+    titre = models.CharField(max_length=255, verbose_name=_("Titre du poste"))
+    slug = models.SlugField(
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Slug")
+    )
+    nom_structure = models.CharField(max_length=255, verbose_name=_("Nom de la structure"))
+    description = models.TextField(verbose_name=_("Description"))
+    type_emploi = models.CharField(
+        max_length=40,
+        choices=TYPE_EMPLOI_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Type d'emploi")
+    )
+    
+    # Localisation
+    lieu = models.CharField(max_length=150, verbose_name=_("Lieu"))
+    ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
+    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    
+    # Contact
+    email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
+    telephone_contact = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
+    
+    # Liens
+    lien_offre_original = models.URLField(null=True, blank=True, verbose_name=_("Lien offre originale"))
+    lien_candidature = models.URLField(null=True, blank=True, verbose_name=_("Lien candidature"))
+    
+    # Dates
+    date_publication = models.DateTimeField(auto_now_add=True, verbose_name=_("Date de publication"))
+    date_expiration = models.DateField(null=True, blank=True, verbose_name=_("Date d'expiration"))
+    
+    # Salaire
+    salaire_min = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Salaire minimum")
+    )
+    salaire_max = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Salaire maximum")
+    )
+    devise = models.CharField(max_length=10, default='XAF', verbose_name=_("Devise"))
+    
+    # Statut et validation
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
+    est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
+    validateur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='emplois_valides',
+        verbose_name=_("Validateur")
+    )
+    date_validation = models.DateTimeField(null=True, blank=True, verbose_name=_("Date de validation"))
+    commentaire_validation = models.TextField(null=True, blank=True, verbose_name=_("Commentaire de validation"))
 
     class Meta:
+        verbose_name = _("Emploi")
+        verbose_name_plural = _("Emplois")
         db_table = 'emploi'
+        ordering = ['-date_publication']
+
+    def __str__(self):
+        return self.titre
 
 
 class Formation(ENSPMHubBaseModel):
+    """Modèle pour les formations"""
     TYPE_FORMATION_CHOICES = [
-        ('en_ligne', 'En ligne'), 
-        ('presentiel', 'Présentiel'), 
+        ('en_ligne', 'En ligne'),
+        ('presentiel', 'Présentiel'),
         ('hybride', 'Hybride')
     ]
+    
+    STATUT_CHOICES = [
+        ('en_attente', 'En attente de validation'),
+        ('active', 'Active'),
+        ('expiree', 'Expirée'),
+        ('annulee', 'Annulée'),
+        ('rejetee', 'Rejetée')
+    ]
 
-    createur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
-    organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
-    titre = models.CharField(max_length=255)
-    lieu = models.CharField(max_length=150, null=True, blank=True)
-    nom_structure = models.CharField(max_length=255)
-    description = models.TextField()
-    type_formation = models.CharField(max_length=20, choices=TYPE_FORMATION_CHOICES)
-    est_payante = models.BooleanField(default=False)
-    email_contact = models.EmailField(null=True, blank=True)
-    telephone_contact = models.CharField(max_length=20, null=True, blank=True)
-    lien_formation = models.URLField(null=True, blank=True)
-    lien_inscription = models.URLField(null=True, blank=True)
-    date_debut = models.DateField(null=True, blank=True)
-    date_fin = models.DateField(null=True, blank=True)
-    prix = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    devise = models.CharField(max_length=10, default='XAF')
-    est_valide = models.BooleanField(default=False)
+    # Relations
+    createur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='formations_creees',
+        verbose_name=_("Créateur")
+    )
+    organisation = models.ForeignKey(
+        'organizations.Organisation',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='formations',
+        verbose_name=_("Organisation")
+    )
+    
+    # Informations principales
+    titre = models.CharField(max_length=255, verbose_name=_("Titre de la formation"))
+    slug = models.SlugField(
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Slug")
+    )
+    nom_structure = models.CharField(max_length=255, verbose_name=_("Nom de la structure"))
+    description = models.TextField(verbose_name=_("Description"))
+    type_formation = models.CharField(
+        max_length=20,
+        choices=TYPE_FORMATION_CHOICES,
+        verbose_name=_("Type de formation")
+    )
+    
+    # Localisation
+    lieu = models.CharField(max_length=150, null=True, blank=True, verbose_name=_("Lieu"))
+    ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
+    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    
+    # Contact
+    email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
+    telephone_contact = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
+    
+    # Liens
+    lien_formation = models.URLField(null=True, blank=True, verbose_name=_("Lien de la formation"))
+    lien_inscription = models.URLField(null=True, blank=True, verbose_name=_("Lien d'inscription"))
+    
+    # Dates
+    date_debut = models.DateField(null=True, blank=True, verbose_name=_("Date de début"))
+    date_fin = models.DateField(null=True, blank=True, verbose_name=_("Date de fin"))
+    date_publication = models.DateTimeField(auto_now_add=True, verbose_name=_("Date de publication"))
+    
+    # Prix
+    est_payante = models.BooleanField(default=False, verbose_name=_("Formation payante"))
+    prix = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Prix")
+    )
+    devise = models.CharField(max_length=10, default='XAF', verbose_name=_("Devise"))
+    
+    # Durée
+    duree_heures = models.IntegerField(null=True, blank=True, verbose_name=_("Durée en heures"))
+    
+    # Statut et validation
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
+    est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
+    validateur_profil = models.ForeignKey(
+        'core.Profil',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='formations_validees',
+        verbose_name=_("Validateur")
+    )
+    date_validation = models.DateTimeField(null=True, blank=True, verbose_name=_("Date de validation"))
+    commentaire_validation = models.TextField(null=True, blank=True, verbose_name=_("Commentaire de validation"))
 
     class Meta:
+        verbose_name = _("Formation")
+        verbose_name_plural = _("Formations")
         db_table = 'formation'
+        ordering = ['-date_publication']
 
-
-class ValidationFormation(ENSPMHubBaseModel):
-    formation = models.ForeignKey(Formation, on_delete=models.CASCADE, related_name='validations')
-    validateur_profil = models.ForeignKey('core.Profil', on_delete=models.CASCADE)
-    est_approuve = models.BooleanField()
-    commentaire = models.TextField(null=True, blank=True)
-    date_validation = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'validation_formation'
+    def __str__(self):
+        return self.titre

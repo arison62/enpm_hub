@@ -1,6 +1,6 @@
 from ninja import NinjaAPI
 from ninja.throttling import AnonRateThrottle, AuthRateThrottle
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from ninja.errors import ValidationError, HttpError, AuthenticationError, AuthorizationError
 from django.http import Http404
 from django.conf import settings
@@ -9,6 +9,11 @@ import logging
 from core.api.auth import auth_router
 from core.api.users import users_router
 from organizations.api.views import organisations_router
+from opportunities.api.views import (
+    stages_router,
+    emplois_router,
+    formations_router
+)
 from core.api.exceptions import BaseAPIException
 
 logger = logging.getLogger(__name__)
@@ -23,10 +28,30 @@ api_v1 = NinjaAPI(
     ]
 )
 
+
+@api_v1.get("/", tags=["Général"])
+def root(request: HttpRequest):
+    """Endpoint racine de l'API."""
+    return {
+        "message": "Bienvenue sur l'API ENSPM Hub",
+        "version": "1.0.0",
+        "documentation": "/api/v1/docs",
+        "modules": {
+            "users": "/api/v1/users/",
+            "organisations": "/api/v1/organisations/",
+            "stages": "/api/v1/internships/",
+            "emplois": "/api/v1/jobs/",
+            "formations": "/api/v1/trainings/"
+        }
+    }
+
 # Inclusion des routers
 api_v1.add_router("/auth/", auth_router)
 api_v1.add_router("/users/", users_router)
 api_v1.add_router("/organisations/", organisations_router)
+api_v1.add_router("internships/", stages_router)
+api_v1.add_router("jobs/", emplois_router)
+api_v1.add_router("trainigs/", formations_router)
 
 # Gestionnaires d'exceptions globaux
 @api_v1.exception_handler(ValidationError)
