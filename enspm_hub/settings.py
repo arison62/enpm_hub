@@ -33,6 +33,9 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
+# 
+MAINTENANCE_MODE = env.bool('MAINTENANCE_MODE', default=False) # type: ignore
+
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*']) # type: ignore
 
 # ==========================================
@@ -141,6 +144,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "inertia.middleware.InertiaMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    'core.middleware.maintenance.MaintenanceMiddleware',
 ]
 
 ROOT_URLCONF = 'enspm_hub.urls'

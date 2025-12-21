@@ -19,6 +19,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from debug_toolbar.toolbar import debug_toolbar_urls
+from core.views import maintenance, forbidden, not_found, server_error
+
 
 from .api_v1 import api_v1
 
@@ -26,8 +28,16 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('home.urls')),
     path('api/v1/', api_v1.urls),
+    path('maintenace/',  maintenance, name='maintenance')
 ] + debug_toolbar_urls()
 
 # En développement uniquement
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+# Gestion des erreurs
+
+handler403 = forbidden
+handler404 = not_found
+handler500 = server_error
