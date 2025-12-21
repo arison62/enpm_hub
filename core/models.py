@@ -1,11 +1,12 @@
 # core/models.py
+from typing import Iterable
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-
+from nanoid import generate
 
 # ==========================================
 # 1. MANAGERS
@@ -150,7 +151,7 @@ class Profil(ENSPMHubBaseModel):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profil')
     nom_complet = models.CharField(max_length=255, verbose_name=_("Nom complet"))
-    matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"))
+    matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"), db_index=True)
     titre = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Titre (Dr., Prof., etc.)"))
     statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
     travailleur = models.BooleanField(default=False, verbose_name=_("Travailleur"))
@@ -159,11 +160,14 @@ class Profil(ENSPMHubBaseModel):
     photo_profil = models.ImageField(upload_to='photos_profils/', null=True, blank=True, verbose_name=_("Photo de profil"))
     domaine = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Domaine"))
     bio = models.TextField(null=True, blank=True, verbose_name=_("Bio"))
+    slug = models.SlugField(unique=True, null=True, blank=True, verbose_name=_("Slug"), db_index=True)
 
     class Meta:
         verbose_name = _("Profil")
         db_table = 'profil'
 
+        
+            
     def __str__(self):
         return self.nom_complet or self.user.email
     

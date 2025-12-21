@@ -132,7 +132,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(Profil)
 class ProfilAdmin(admin.ModelAdmin):
     list_display = (
-        'nom_complet', 'user_email', 'matricule', 'statut_global',
+        'nom_complet', 'user_email', 'matricule','slug', 'statut_global',
         'travailleur_badge', 'photo_thumbnail', 'created_at'
     )
     list_filter = ('statut_global', 'travailleur', 'created_at', 'deleted')
@@ -152,7 +152,7 @@ class ProfilAdmin(admin.ModelAdmin):
             'fields': ('statut_global', 'domaine', 'annee_sortie', 'travailleur')
         }),
         (_('Métadonnées'), {
-            'fields': ('id', 'created_at', 'updated_at', 'deleted', 'deleted_at'),
+            'fields': ('id', 'slug', 'created_at', 'updated_at', 'deleted', 'deleted_at'),
             'classes': ('collapse',)
         }),
     )

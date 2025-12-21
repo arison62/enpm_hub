@@ -8,7 +8,7 @@ import logging
 
 from core.api.auth import auth_router
 from core.api.users import users_router
-from organizations.api.views import organizations_router
+from organizations.api.views import organisations_router
 from core.api.exceptions import BaseAPIException
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ api_v1 = NinjaAPI(
 # Inclusion des routers
 api_v1.add_router("/auth/", auth_router)
 api_v1.add_router("/users/", users_router)
-api_v1.add_router("/organizations/", organizations_router)
+api_v1.add_router("/organisations/", organisations_router)
 
 # Gestionnaires d'exceptions globaux
 @api_v1.exception_handler(ValidationError)

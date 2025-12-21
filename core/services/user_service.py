@@ -1,13 +1,16 @@
 import logging
 import os
 from typing import Optional
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password
 from django.utils.crypto import get_random_string
 from django.core.files.uploadedfile import UploadedFile
 from django.core.files.storage import default_storage
 from django.conf import settings
-from core.models import User, Profil
+from django.utils.text import slugify
+from django.db.models import Q, Prefetch
+from nanoid import generate
+from core.models import User, Profil, LienReseauSocial
 from core.services.audit_service import audit_log_service, AuditLog
 from core.services.email_service import EmailTemplates
 from PIL import Image
@@ -25,6 +28,15 @@ class UserService:
     PHOTO_MAX_DIMENSIONS = (800, 800)
 
     @staticmethod
+    def generate_unique_slug(base_name: str) -> str:
+        """
+         Génère un slug format : nomcomplet-nanoId
+        Exemple : aminatou-seidou-x7r2p9      
+        """
+        return slugify(f"{base_name}-{generate(size=6)}")
+        
+        
+    @staticmethod
     @transaction.atomic
     def create_user(acting_user: User, user_data: dict, request=None) -> User:
         if User.objects.filter(email=user_data.get('email')).exists():
@@ -41,8 +53,19 @@ class UserService:
             user_data['is_staff'] = True
 
         new_user = User.objects.create(**user_data)
-        Profil.objects.create(user=new_user, **profil_data)
-
+        success = False
+        for attempt in range(3):
+            try:
+                profil_data['slug'] = UserService.generate_unique_slug(profil_data.get('nom_complet'))
+                Profil.objects.create(user=new_user, **profil_data)
+                success = True
+                break
+            except IntegrityError:
+                continue
+        
+        if not success:
+            raise ValueError("Impossible de générer un identifiant unique après plusieurs tentatives.")
+        
         logger.info(f"Nouvel utilisateur créé (ID: {new_user.id}) par {acting_user.email}.")
 
         audit_data = {**user_data, 'profil': profil_data}
@@ -57,27 +80,51 @@ class UserService:
             new_values=audit_data
         )
         return new_user
-
     @staticmethod
     @transaction.atomic
     def update_user(acting_user: User, user_to_update: User, data_update: dict, request=None) -> User:
         profil_data = data_update.pop('profil', None)
         old_values = {}
+        new_values_log = {}
 
+        # 1. Mise à jour des données de base de l'User
         if data_update:
             for field, value in data_update.items():
                 old_values[field] = getattr(user_to_update, field)
                 setattr(user_to_update, field, value)
             user_to_update.save()
+            new_values_log.update(data_update)
 
+        # 2. Mise à jour du Profil et du Slug
         if profil_data:
             profil, _ = Profil.objects.get_or_create(user=user_to_update)
-            for field, value in profil_data.items():
-                old_values[f'profil__{field}'] = getattr(profil, field)
-                setattr(profil, field, value)
-            profil.save()
+            
+            # Gestion spécifique du slug (Modèle LinkedIn)
+            if 'slug' in profil_data:
+                new_slug = slugify(profil_data['slug'])
+                
+                # Validation d'unicité
+                if Profil.objects.filter(slug=new_slug).exclude(id=profil.id).exists():
+                    raise ValueError(f"Le slug '{new_slug}' est déjà utilisé par un autre membre.")
+                
+                # Si le slug a changé, on le prépare pour le log
+                if profil.slug != new_slug:
+                    old_values['profil__slug'] = profil.slug
+                    profil.slug = new_slug
+                    profil_data['slug'] = new_slug # On garde la version nettoyée
 
-        logger.info(f"Utilisateur (ID: {user_to_update.id}) mis à jour par {acting_user.email}.")
+            # Mise à jour des autres champs du profil
+            for field, value in profil_data.items():
+                if field != 'slug': # Déjà géré au-dessus
+                    old_values[f'profil__{field}'] = getattr(profil, field)
+                    setattr(profil, field, value)
+            
+            profil.save()
+            new_values_log.update({f'profil__{k}': v for k, v in profil_data.items()})
+
+        logger.info(f"Utilisateur (ID: {user_to_update.id}) mis à jour par {acting_user.email}. Slug: {user_to_update.profil.slug}") # type: ignore
+
+        # 3. Journalisation complète dans l'AuditTrail
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.UPDATE,
@@ -85,8 +132,9 @@ class UserService:
             entity_id=user_to_update.id,
             request=request,
             old_values=old_values,
-            new_values=data_update
+            new_values=new_values_log
         )
+        
         return user_to_update
 
     @staticmethod
@@ -119,11 +167,11 @@ class UserService:
     @staticmethod
     def _optimize_photo(photo_file: UploadedFile) -> BytesIO:
         image = Image.open(photo_file)
-        if image.mode in ('RGBA', 'LA', 'P'):
+        if image.mode in ('RGBA', 'LA'):
             image = image.convert('RGB')
         image.thumbnail(UserService.PHOTO_MAX_DIMENSIONS, Image.Resampling.LANCZOS)
         output = BytesIO()
-        image.save(output, format='JPEG', quality=85)
+        image.save(output, format='WebP', quality=80)
         output.seek(0)
         return output
 
@@ -137,7 +185,7 @@ class UserService:
             os.remove(profil.photo_profil.path)
 
         optimized_photo = UserService._optimize_photo(photo_file)
-        file_name = f"profile_{user.id}.jpg"
+        file_name = f"profile_{user.id}.webp"
         saved_path = default_storage.save(os.path.join('photos_profils', file_name), optimized_photo)
 
         profil.photo_profil = saved_path # type: ignore
@@ -197,4 +245,470 @@ class UserService:
             logger.warning(f"Tentative de récupération de mot de passe pour un email inexistant: {email}.")
             return None
 
+        
+    @staticmethod
+    def get_user_by_id(user_id: str, include_relations: bool = True) -> Optional[User]:
+        """
+        Récupère un utilisateur par son ID avec toutes ses relations.
+        
+        Args:
+            user_id: UUID de l'utilisateur
+            include_relations: Si True, inclut profil et réseaux sociaux
+        
+        Returns:
+            User ou None si non trouvé
+        """
+        try:
+            queryset = User.objects
+            if include_relations:
+                queryset = queryset.select_related('profil').prefetch_related(
+                    Prefetch(
+                        'profil__liens_reseaux',
+                        queryset=LienReseauSocial.objects.filter(est_actif=True)
+                    )
+                )
+            return queryset.get(id=user_id)
+        except User.DoesNotExist:
+            logger.warning(f"Utilisateur non trouvé avec l'ID: {user_id}")
+            return None
+        
+    @staticmethod
+    def get_user_by_slug(slug: str) -> Optional[User]:
+        """
+        Récupère un utilisateur par le slug de son profil.
+        
+        Args:
+            slug: Slug du profil (ex: aminatou-seidou-x7r2p9)
+        
+        Returns:
+            User ou None si non trouvé
+        """
+        try:
+            return User.objects.select_related('profil').prefetch_related(
+                'profil__liens_reseaux'
+            ).get(profil__slug=slug)
+        except User.DoesNotExist:
+            logger.warning(f"Utilisateur non trouvé avec le slug: {slug}")
+            return None
+    
+        
+    @staticmethod
+    def list_users(filters: Optional[dict] =  None, page: int = 1, page_size: int = 20):
+        """
+        Liste les utilisateurs avec filtres et pagination.
+        
+        Args:
+            filters: Dictionnaire de filtres (search, role_systeme, statut_global, etc.)
+            page: Numéro de page
+            page_size: Nombre d'éléments par page
+        
+        Returns:
+            Tuple (queryset, total_count)
+        """
+        queryset = User.objects.select_related('profil').prefetch_related(
+            'profil__liens_reseaux'
+        )
+        
+        if filters:
+            # Recherche textuelle
+            if search := filters.get('search'):
+                queryset = queryset.filter(
+                    Q(email__icontains=search) |
+                    Q(profil__nom_complet__icontains=search) |
+                    Q(profil__matricule__icontains=search) |
+                    Q(profil__telephone__icontains=search) |
+                    Q(profil__domaine__icontains=search)
+                )
+            
+            # Filtres exacts
+            if role := filters.get('role_systeme'):
+                queryset = queryset.filter(role_systeme=role)
+            
+            if statut := filters.get('statut_global'):
+                queryset = queryset.filter(profil__statut_global=statut)
+            
+            if 'est_actif' in filters:
+                queryset = queryset.filter(est_actif=filters['est_actif'])
+            
+            if 'travailleur' in filters:
+                queryset = queryset.filter(profil__travailleur=filters['travailleur'])
+        
+        total_count = queryset.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        return queryset[start:end], total_count
+    
+      
+    # ==========================================
+    # GESTION DES RÉSEAUX SOCIAUX
+    # ==========================================
+    
+    @staticmethod
+    @transaction.atomic
+    def add_social_link(
+        acting_user: User, 
+        user: User, 
+        nom_reseau: str, 
+        url: str,
+        request=None
+    ) -> LienReseauSocial:
+        """
+        Ajoute un lien réseau social à un profil.
+        
+        Args:
+            acting_user: Utilisateur effectuant l'action
+            user: Utilisateur cible
+            nom_reseau: Nom du réseau (ex: 'LinkedIn')
+            url: URL du profil sur le réseau
+            request: Objet request pour l'audit
+        
+        Returns:
+            LienReseauSocial créé
+        """
+        profil = getattr(user, 'profil', None)
+        if not profil:
+            raise ValueError("L'utilisateur n'a pas de profil.")
+        
+        # Vérification unicité par réseau
+        if LienReseauSocial.objects.filter(
+            profil=profil, 
+            nom_reseau=nom_reseau,
+            deleted=False
+        ).exists():
+            raise ValueError(f"Un lien {nom_reseau} existe déjà pour ce profil.")
+        
+        social_link = LienReseauSocial.objects.create(
+            profil=profil,
+            nom_reseau=nom_reseau,
+            url=url,
+            est_actif=True
+        )
+        
+        logger.info(f"Lien {nom_reseau} ajouté au profil {profil.id} par {acting_user.email}")
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.CREATE,
+            entity_type='LienReseauSocial',
+            entity_id=social_link.id,
+            request=request,
+            new_values={'nom_reseau': nom_reseau, 'url': url}
+        )
+        
+        return social_link
+    
+        
+    @staticmethod
+    @transaction.atomic
+    def update_social_link(
+        acting_user: User,
+        link_id: str,
+        url: Optional[str] = None,
+        est_actif: Optional[bool] = None,
+        request=None
+    ) -> LienReseauSocial:
+        """
+        Met à jour un lien réseau social.
+        
+        Args:
+            acting_user: Utilisateur effectuant l'action
+            link_id: UUID du lien à mettre à jour
+            url: Nouvelle URL (optionnel)
+            est_actif: Nouveau statut actif (optionnel)
+            request: Objet request pour l'audit
+        
+        Returns:
+            LienReseauSocial mis à jour
+        """
+        try:
+            social_link = LienReseauSocial.objects.get(id=link_id)
+        except LienReseauSocial.DoesNotExist:
+            raise ValueError(f"Lien réseau social avec l'ID {link_id} introuvable.")
+        
+        old_values = {}
+        new_values = {}
+        
+        if url is not None and url != social_link.url:
+            old_values['url'] = social_link.url
+            social_link.url = url
+            new_values['url'] = url
+        
+        if est_actif is not None and est_actif != social_link.est_actif:
+            old_values['est_actif'] = social_link.est_actif
+            social_link.est_actif = est_actif
+            new_values['est_actif'] = est_actif
+        
+        social_link.save()
+        
+        logger.info(f"Lien {social_link.nom_reseau} (ID: {link_id}) mis à jour par {acting_user.email}")
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.UPDATE,
+            entity_type='LienReseauSocial',
+            entity_id=social_link.id,
+            request=request,
+            old_values=old_values,
+            new_values=new_values
+        )
+        
+        return social_link
+    
+    @staticmethod
+    @transaction.atomic
+    def delete_social_link(acting_user: User, link_id: str, request=None):
+        """
+        Supprime (soft delete) un lien réseau social.
+        
+        Args:
+            acting_user: Utilisateur effectuant l'action
+            link_id: UUID du lien à supprimer
+            request: Objet request pour l'audit
+        """
+        try:
+            social_link = LienReseauSocial.objects.get(id=link_id)
+        except LienReseauSocial.DoesNotExist:
+            raise ValueError(f"Lien réseau social avec l'ID {link_id} introuvable.")
+        
+        social_link.soft_delete()
+        
+        logger.info(f"Lien {social_link.nom_reseau} (ID: {link_id}) supprimé par {acting_user.email}")
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.DELETE,
+            entity_type='LienReseauSocial',
+            entity_id=social_link.id,
+            request=request
+        )
+    
+    @staticmethod
+    def get_social_links(user: User) -> list[LienReseauSocial]:
+        """
+        Récupère tous les liens réseaux sociaux actifs d'un utilisateur.
+        
+        Args:
+            user: Utilisateur cible
+        
+        Returns:
+            Liste des LienReseauSocial actifs
+        """
+        profil = getattr(user, 'profil', None)
+        if not profil:
+            return []
+        
+        return list(
+            LienReseauSocial.objects.filter(
+                profil=profil,
+                est_actif=True
+            ).order_by('nom_reseau')
+        )
+    
+    
+     
+    # ==========================================
+    # GESTION DU MOT DE PASSE
+    # ==========================================
+    
+    @staticmethod
+    @transaction.atomic
+    def change_password(
+        user: User, 
+        old_password: str, 
+        new_password: str,
+        request=None
+    ) -> bool:
+        """
+        Permet à un utilisateur de changer son propre mot de passe.
+        
+        Args:
+            user: Utilisateur authentifié
+            old_password: Ancien mot de passe
+            new_password: Nouveau mot de passe
+            request: Objet request pour l'audit
+        
+        Returns:
+            True si succès
+        
+        Raises:
+            ValueError: Si l'ancien mot de passe est incorrect
+        """
+        if not user.check_password(old_password):
+            raise ValueError("L'ancien mot de passe est incorrect.")
+        
+        user.set_password(new_password)
+        user.save()
+        
+        logger.info(f"Mot de passe changé pour l'utilisateur {user.email}")
+        
+        audit_log_service.log_action(
+            user=user,
+            action=AuditLog.AuditAction.UPDATE,
+            entity_type='User',
+            entity_id=user.id,
+            request=request,
+            new_values={'password': '***'}
+        )
+        
+        return True
+    
+    @staticmethod
+    @transaction.atomic
+    def reset_password(
+        acting_user: User,
+        user_to_reset: User,
+        new_password: Optional[str] = None,
+        request=None
+    ) -> str:
+        """
+        Réinitialise le mot de passe d'un utilisateur (admin uniquement).
+        
+        Args:
+            acting_user: Administrateur effectuant l'action
+            user_to_reset: Utilisateur dont le mot de passe doit être réinitialisé
+            new_password: Nouveau mot de passe (généré si None)
+            request: Objet request pour l'audit
+        
+        Returns:
+            Le nouveau mot de passe en clair
+        """
+        if not new_password:
+            new_password = get_random_string(12)
+        
+        user_to_reset.set_password(new_password)
+        user_to_reset.save()
+        
+        logger.info(
+            f"Mot de passe réinitialisé pour {user_to_reset.email} "
+            f"par {acting_user.email}"
+        )
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.UPDATE,
+            entity_type='User',
+            entity_id=user_to_reset.id,
+            request=request,
+            new_values={'password_reset': True}
+        )
+        
+        return new_password
+    
+    # ==========================================
+    # GESTION DU COMPTE
+    # ==========================================
+    
+    @staticmethod
+    @transaction.atomic
+    def toggle_user_status(
+        acting_user: User,
+        user_to_toggle: User,
+        est_actif: bool,
+        request=None
+    ) -> User:
+        """
+        Active ou désactive un compte utilisateur.
+        
+        Args:
+            acting_user: Administrateur effectuant l'action
+            user_to_toggle: Utilisateur à activer/désactiver
+            est_actif: True pour activer, False pour désactiver
+            request: Objet request pour l'audit
+        
+        Returns:
+            User mis à jour
+        """
+        old_status = user_to_toggle.est_actif
+        user_to_toggle.est_actif = est_actif
+        user_to_toggle.save()
+        
+        action_desc = "activé" if est_actif else "désactivé"
+        logger.info(
+            f"Compte {user_to_toggle.email} {action_desc} "
+            f"par {acting_user.email}"
+        )
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.UPDATE,
+            entity_type='User',
+            entity_id=user_to_toggle.id,
+            request=request,
+            old_values={'est_actif': old_status},
+            new_values={'est_actif': est_actif}
+        )
+        
+        return user_to_toggle
+    
+    @staticmethod
+    @transaction.atomic
+    def restore_user(acting_user: User, user_to_restore: User, request=None) -> User:
+        """
+        Restaure un utilisateur supprimé (soft delete).
+        
+        Args:
+            acting_user: Administrateur effectuant l'action
+            user_to_restore: Utilisateur à restaurer
+            request: Objet request pour l'audit
+        
+        Returns:
+            User restauré
+        """
+        user_to_restore.restore()
+        
+        logger.info(
+            f"Utilisateur {user_to_restore.email} restauré "
+            f"par {acting_user.email}"
+        )
+        
+        audit_log_service.log_action(
+            user=acting_user,
+            action=AuditLog.AuditAction.UPDATE,
+            entity_type='User',
+            entity_id=user_to_restore.id,
+            request=request,
+            new_values={'deleted': False}
+        )
+        
+        return user_to_restore
+    
+    # ==========================================
+    # STATISTIQUES & RAPPORTS
+    # ==========================================
+    
+    @staticmethod
+    def get_user_statistics() -> dict:
+        """
+        Retourne des statistiques globales sur les utilisateurs.
+        
+        Returns:
+            Dictionnaire avec les stats
+        """
+        total_users = User.objects.count()
+        active_users = User.objects.filter(est_actif=True).count()
+        deleted_users = User.all_objects.filter(deleted=True).count()
+        
+        stats_by_role = {}
+        for role, _ in User.ROLE_SYSTEME_CHOICES:
+            stats_by_role[role] = User.objects.filter(role_systeme=role).count()
+        
+        stats_by_status = {}
+        for status, _ in Profil.STATUT_GLOBAL_CHOICES:
+            stats_by_status[status] = Profil.objects.filter(
+                statut_global=status
+            ).count()
+        
+        return {
+            'total_users': total_users,
+            'active_users': active_users,
+            'inactive_users': total_users - active_users,
+            'deleted_users': deleted_users,
+            'by_role': stats_by_role,
+            'by_status': stats_by_status,
+        }
+
+
+# Instance singleton
 user_service = UserService()
+
