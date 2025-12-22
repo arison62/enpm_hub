@@ -156,6 +156,7 @@ class Profil(ENSPMHubBaseModel):
     statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
     travailleur = models.BooleanField(default=False, verbose_name=_("Travailleur"))
     annee_sortie = models.SmallIntegerField(null=True, blank=True, verbose_name=_("Année de sortie"))
+    adresse = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Adresse"))
     telephone = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
     photo_profil = models.ImageField(upload_to='photos_profils/', null=True, blank=True, verbose_name=_("Photo de profil"))
     domaine = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Domaine"))
