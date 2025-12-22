@@ -75,7 +75,7 @@ export function NavUser() {
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <User />
-            <Link href="/profile">Mon profile</Link>
+            <Link href={`/profile/${user.profil.slug}`}>Mon profile</Link>
           </DropdownMenuItem>
           { isAdmin && (
             <DropdownMenuItem>

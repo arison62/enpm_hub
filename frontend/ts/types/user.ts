@@ -3,6 +3,7 @@ export type Profil = {
   nom_complet: string;
   matricule: string | null;
   titre: string | null;
+  slug: string | null;
   statut_global: string | null;
   travailleur: boolean | null;
   annee_sortie: number | null;

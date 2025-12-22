@@ -45,7 +45,7 @@ class ProfilOutSchema(ModelSchema):
         model = Profil
         fields = [
             'id', 'nom_complet', 'matricule', 'titre', 'statut_global', 'slug',
-            'travailleur', 'annee_sortie', 'telephone', 'domaine',
+            'travailleur', 'annee_sortie', 'telephone', 'domaine', 'adresse',
             'bio', 'photo_profil'
         ]
 
@@ -65,6 +65,7 @@ class ProfilCreateSchema(Schema):
     telephone: Optional[str] = None
     domaine: Optional[str] = None
     bio: Optional[str] = None
+    adresse: Optional[str] = None
 
 
 class ProfilUpdateSchema(Schema):
@@ -77,6 +78,7 @@ class ProfilUpdateSchema(Schema):
     annee_sortie: Optional[int] = None
     telephone: Optional[str] = None
     domaine: Optional[str] = None
+    adresse: Optional[str] = None
     bio: Optional[str] = None
 
 
