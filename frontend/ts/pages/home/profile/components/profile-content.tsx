@@ -6,6 +6,7 @@ import { ProfileHeader } from "./profile-header";
 import { ProfileSidebar } from "./profile-sidebar";
 import { type UserProps } from "../types";
 import { useAuthStore } from "@/stores/authStore";
+import { useInternalNav } from "@/contexts/internal-nav-context";
 
 export const ProfileContent = ({ user }: { user: UserProps }) => {
   const containerRef = useRef<HTMLDivElement>(null);
