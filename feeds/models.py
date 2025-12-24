@@ -11,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 class Post(ENSPMHubBaseModel):
     contenu = models.TextField()
     image = models.ImageField(upload_to='posts_images/', null=True, blank=True)
-    auteur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL,
+    auteur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL,
                                       related_name='posts')
     auteur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL,
                                             related_name='posts')
@@ -28,7 +28,7 @@ class Post(ENSPMHubBaseModel):
 class Commentaire(ENSPMHubBaseModel):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='commentaires')
     contenu = models.TextField()
-    auteur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL)
+    auteur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL)
     auteur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
@@ -43,7 +43,7 @@ class Evenement(ENSPMHubBaseModel):
     date_debut = models.DateTimeField()
     date_fin = models.DateTimeField(null=True, blank=True)
     lien_inscription = models.URLField(null=True, blank=True)
-    organisateur_profil = models.ForeignKey('core.Profil', null=True, blank=True, on_delete=models.SET_NULL,
+    organisateur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL,
                                             related_name='evenements_organises')
     organisateur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL,
                                                   related_name='evenements_organises')

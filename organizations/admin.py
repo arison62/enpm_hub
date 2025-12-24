@@ -32,7 +32,7 @@ class OrganisationAdmin(admin.ModelAdmin):
         'type_organisation', 'statut', 'pays', 'deleted',
         'created_at'
     )
-    search_fields = ('nom_organisation', 'secteur_activite', 'email_general')
+    search_fields = ('nom_organisation', 'secteur_activite__nom', 'email_general')
     ordering = ('-created_at',)
     list_per_page = 25
     list_display_links = ('nom_organisation',)
@@ -49,7 +49,7 @@ class OrganisationAdmin(admin.ModelAdmin):
             'fields': ('adresse', 'ville', 'pays', 'email_general', 'telephone_general')
         }),
         (_('Visuel et statut'), {
-            'fields': ('logo', 'statut', 'date_creation')
+            'fields': ('logo_preview', 'logo', 'statut', 'date_creation')
         }),
         (_('Métadonnées'), {
             'fields': ('id', 'created_at', 'updated_at', 'deleted', 'deleted_at'),
@@ -57,7 +57,7 @@ class OrganisationAdmin(admin.ModelAdmin):
         }),
     )
 
-    readonly_fields = ('id', 'created_at', 'updated_at', 'deleted_at')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'deleted_at', 'logo_preview')
 
     # ======================================
     # Méthodes personnalisées
@@ -79,6 +79,12 @@ class OrganisationAdmin(admin.ModelAdmin):
     @admin.display(description='Supprimé', boolean=True)
     def deleted_badge(self, obj):
         return obj.deleted
+
+    @admin.display(description=_('Aperçu du logo'))
+    def logo_preview(self, obj):
+        if obj.logo:
+            return format_html('<img src="{}" width="100" height="100" style="object-fit: contain;" />', obj.logo.url)
+        return _('Aucun logo')
 
     # ======================================
     # Actions personnalisées
@@ -113,7 +119,7 @@ class OrganisationAdmin(admin.ModelAdmin):
     # Optimisations
     # ======================================
     def get_queryset(self, request):
-        return Organisation.objects.select_related().all()  # Adjust if soft delete manager is used
+        return Organisation.all_objects.select_related('secteur_activite').all()
 
 # ==========================================
 # 3. ADMIN MEMBRE ORGANISATION
@@ -128,7 +134,7 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
         'poste', 'est_actif_badge', 'date_joindre'
     )
     list_filter = ('role_organisation', 'est_actif', 'date_joindre')
-    search_fields = ('profil__nom_complet', 'organisation__nom_organisation', 'poste')
+    search_fields = ('profil__nom_complet', 'organisation__nom_organisation', 'poste__nom')
     ordering = ('-date_joindre',)
     list_per_page = 50
 
@@ -142,9 +148,13 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
         (_('Dates'), {
             'fields': ('date_joindre', 'created_at', 'updated_at')
         }),
+        (_('Métadonnées'), {
+            'fields': ('deleted', 'deleted_at'),
+            'classes': ('collapse',)
+        }),
     )
 
-    readonly_fields = ('date_joindre', 'created_at', 'updated_at')
+    readonly_fields = ('date_joindre', 'created_at', 'updated_at', 'deleted_at')
 
     # ======================================
     # Méthodes d'affichage personnalisées
@@ -152,7 +162,7 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
     @admin.display(description='Profil')
     def profil_link(self, obj):
         if obj.profil:
-            url = f'/admin/core/profil/{obj.profil.id}/change/'  # Assuming core app has ProfilAdmin
+            url = f'/admin/users/profil/{obj.profil.id}/change/'  # Assuming core app has ProfilAdmin
             return format_html('<a href="{}">{}</a>', url, obj.profil.nom_complet)
         return '-'
 
@@ -181,7 +191,7 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
         return obj.est_actif
 
     def get_queryset(self, request):
-        return MembreOrganisation.objects.select_related('profil', 'organisation').all()
+        return MembreOrganisation.all_objects.select_related('profil', 'organisation', 'poste').all()
 
 # ==========================================
 # 4. ADMIN ABONNEMENT ORGANISATION
@@ -204,12 +214,12 @@ class AbonnementOrganisationAdmin(admin.ModelAdmin):
             'fields': ('profil', 'organisation', 'date_abonnement')
         }),
         (_('Métadonnées'), {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('created_at', 'updated_at', 'deleted', 'deleted_at'),
             'classes': ('collapse',)
         }),
     )
 
-    readonly_fields = ('date_abonnement', 'created_at', 'updated_at')
+    readonly_fields = ('date_abonnement', 'created_at', 'updated_at', 'deleted_at')
 
     # ======================================
     # Méthodes d'affichage personnalisées
@@ -217,7 +227,7 @@ class AbonnementOrganisationAdmin(admin.ModelAdmin):
     @admin.display(description='Profil')
     def profil_link(self, obj):
         if obj.profil:
-            url = f'/admin/core/profil/{obj.profil.id}/change/'
+            url = f'/admin/users/profil/{obj.profil.id}/change/'
             return format_html('<a href="{}">{}</a>', url, obj.profil.nom_complet)
         return '-'
 
@@ -229,7 +239,7 @@ class AbonnementOrganisationAdmin(admin.ModelAdmin):
         return '-'
 
     def get_queryset(self, request):
-        return AbonnementOrganisation.objects.select_related('profil', 'organisation').all()
+        return AbonnementOrganisation.all_objects.select_related('profil', 'organisation').all()
 
     def has_add_permission(self, request): return True  # Allow adding, but perhaps restrict in production
     def has_change_permission(self, request, obj=None): return True

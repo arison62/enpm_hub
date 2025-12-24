@@ -10,7 +10,8 @@ from django.conf import settings
 from django.utils.text import slugify
 from django.db.models import Q, Prefetch
 from nanoid import generate
-from core.models import User, Profil, LienReseauSocial
+from core.models import User
+from users.models import Profil, LienReseauSocialProfil
 from core.services.audit_service import audit_log_service, AuditLog
 from core.services.email_service import EmailTemplates
 from PIL import Image
@@ -261,12 +262,17 @@ class UserService:
         try:
             queryset = User.objects
             if include_relations:
-                queryset = queryset.select_related('profil').prefetch_related(
-                    Prefetch(
-                        'profil__liens_reseaux',
-                        queryset=LienReseauSocial.objects.filter(est_actif=True)
-                    )
-                )
+                queryset = User.objects.select_related(
+                'profil'
+            ).prefetch_related(
+                'profil__liens_reseaux'
+            ).prefetch_related(
+                'profil__domaine'
+            ).prefetch_related(
+                'profil__annee_sortie'
+            ).prefetch_related(
+                'profil__titre'
+            )
             return queryset.get(id=user_id)
         except User.DoesNotExist:
             logger.warning(f"Utilisateur non trouvé avec l'ID: {user_id}")
@@ -284,8 +290,16 @@ class UserService:
             User ou None si non trouvé
         """
         try:
-            return User.objects.select_related('profil').prefetch_related(
+            return User.objects.select_related(
+                'profil'
+            ).prefetch_related(
                 'profil__liens_reseaux'
+            ).prefetch_related(
+                'profil__domaine'
+            ).prefetch_related(
+                'profil__annee_sortie'
+            ).prefetch_related(
+                'profil__titre'
             ).get(profil__slug=slug)
         except User.DoesNotExist:
             logger.warning(f"Utilisateur non trouvé avec le slug: {slug}")
@@ -307,7 +321,13 @@ class UserService:
         """
         queryset = User.objects.select_related('profil').prefetch_related(
             'profil__liens_reseaux'
-        )
+            ).prefetch_related(
+                'profil__domaine'
+            ).prefetch_related(
+                'profil__annee_sortie'
+            ).prefetch_related(
+                'profil__titre'
+            )
         
         if filters:
             # Recherche textuelle
@@ -332,6 +352,9 @@ class UserService:
             
             if 'travailleur' in filters:
                 queryset = queryset.filter(profil__travailleur=filters['travailleur'])
+            
+            if 'pays' in filters:
+                queryset = queryset.filter(profil__pays__name=filters['pays'])
         
         total_count = queryset.count()
         start = (page - 1) * page_size
@@ -349,10 +372,10 @@ class UserService:
     def add_social_link(
         acting_user: User, 
         user: User, 
-        nom_reseau: str, 
+        reseau: str, 
         url: str,
         request=None
-    ) -> LienReseauSocial:
+    ) -> LienReseauSocialProfil:
         """
         Ajoute un lien réseau social à un profil.
         
@@ -370,22 +393,14 @@ class UserService:
         if not profil:
             raise ValueError("L'utilisateur n'a pas de profil.")
         
-        # Vérification unicité par réseau
-        if LienReseauSocial.objects.filter(
-            profil=profil, 
-            nom_reseau=nom_reseau,
-            deleted=False
-        ).exists():
-            raise ValueError(f"Un lien {nom_reseau} existe déjà pour ce profil.")
-        
-        social_link = LienReseauSocial.objects.create(
+        social_link = LienReseauSocialProfil.objects.create(
             profil=profil,
-            nom_reseau=nom_reseau,
+            reseau=reseau,
             url=url,
             est_actif=True
         )
         
-        logger.info(f"Lien {nom_reseau} ajouté au profil {profil.id} par {acting_user.email}")
+        logger.info(f"Lien {reseau} ajouté au profil {profil.id} par {acting_user.email}")
         
         audit_log_service.log_action(
             user=acting_user,
@@ -393,7 +408,7 @@ class UserService:
             entity_type='LienReseauSocial',
             entity_id=social_link.id,
             request=request,
-            new_values={'nom_reseau': nom_reseau, 'url': url}
+            new_values={'nom_reseau': reseau, 'url': url}
         )
         
         return social_link
@@ -407,7 +422,7 @@ class UserService:
         url: Optional[str] = None,
         est_actif: Optional[bool] = None,
         request=None
-    ) -> LienReseauSocial:
+    ) -> LienReseauSocialProfil:
         """
         Met à jour un lien réseau social.
         
@@ -422,8 +437,8 @@ class UserService:
             LienReseauSocial mis à jour
         """
         try:
-            social_link = LienReseauSocial.objects.get(id=link_id)
-        except LienReseauSocial.DoesNotExist:
+            social_link = LienReseauSocialProfil.objects.get(id=link_id)
+        except LienReseauSocialProfil.DoesNotExist:
             raise ValueError(f"Lien réseau social avec l'ID {link_id} introuvable.")
         
         old_values = {}
@@ -441,7 +456,7 @@ class UserService:
         
         social_link.save()
         
-        logger.info(f"Lien {social_link.nom_reseau} (ID: {link_id}) mis à jour par {acting_user.email}")
+        logger.info(f"Lien {social_link.reseau} (ID: {link_id}) mis à jour par {acting_user.email}")
         
         audit_log_service.log_action(
             user=acting_user,
@@ -467,13 +482,13 @@ class UserService:
             request: Objet request pour l'audit
         """
         try:
-            social_link = LienReseauSocial.objects.get(id=link_id)
-        except LienReseauSocial.DoesNotExist:
+            social_link = LienReseauSocialProfil.objects.get(id=link_id)
+        except LienReseauSocialProfil.DoesNotExist:
             raise ValueError(f"Lien réseau social avec l'ID {link_id} introuvable.")
         
         social_link.soft_delete()
         
-        logger.info(f"Lien {social_link.nom_reseau} (ID: {link_id}) supprimé par {acting_user.email}")
+        logger.info(f"Lien {social_link.reseau} (ID: {link_id}) supprimé par {acting_user.email}")
         
         audit_log_service.log_action(
             user=acting_user,
@@ -484,7 +499,7 @@ class UserService:
         )
     
     @staticmethod
-    def get_social_links(user: User) -> list[LienReseauSocial]:
+    def get_social_links(user: User) -> list[LienReseauSocialProfil]:
         """
         Récupère tous les liens réseaux sociaux actifs d'un utilisateur.
         
@@ -499,7 +514,7 @@ class UserService:
             return []
         
         return list(
-            LienReseauSocial.objects.filter(
+            LienReseauSocialProfil.objects.filter(
                 profil=profil,
                 est_actif=True
             ).order_by('nom_reseau')

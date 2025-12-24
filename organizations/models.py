@@ -2,7 +2,7 @@
 from django.db import models
 from core.models import ENSPMHubBaseModel
 from django.utils.translation import gettext_lazy as _
-
+from django_countries.fields import CountryField
 
 class Organisation(ENSPMHubBaseModel):
     TYPE_ORGANISATION_CHOICES = [
@@ -35,15 +35,17 @@ class Organisation(ENSPMHubBaseModel):
         choices=TYPE_ORGANISATION_CHOICES,
         verbose_name=_("Type d'organisation")
     )
-    secteur_activite = models.CharField(
-        max_length=150,
+    secteur_activite = models.ForeignKey(
+        'core.SecteurActivite',
         null=True,
         blank=True,
+        on_delete=models.SET_NULL,
+        related_name='organisations',
         verbose_name=_("Secteur d'activité")
     )
     adresse = models.TextField(null=True, blank=True, verbose_name=_("Adresse"))
     ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
-    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
     email_general = models.EmailField(null=True, blank=True, verbose_name=_("Email général"))
     telephone_general = models.CharField(
         max_length=20,
@@ -87,7 +89,7 @@ class MembreOrganisation(ENSPMHubBaseModel):
     ]
 
     profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         on_delete=models.CASCADE,
         related_name='membres_organisations',
         verbose_name=_("Profil")
@@ -104,10 +106,12 @@ class MembreOrganisation(ENSPMHubBaseModel):
         default='employe',
         verbose_name=_("Rôle dans l'organisation")
     )
-    poste = models.CharField(
-        max_length=150,
+    poste = models.ForeignKey(
+        'core.Poste',
         null=True,
         blank=True,
+        on_delete=models.SET_NULL,
+        related_name='membres',
         verbose_name=_("Poste")
     )
     est_actif = models.BooleanField(default=True, verbose_name=_("Membre actif"))
@@ -126,7 +130,7 @@ class MembreOrganisation(ENSPMHubBaseModel):
 
 class AbonnementOrganisation(ENSPMHubBaseModel):
     profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         on_delete=models.CASCADE,
         related_name='abonnements',
         verbose_name=_("Profil")

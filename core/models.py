@@ -1,12 +1,12 @@
 # core/models.py
-from typing import Iterable
 import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
-from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from nanoid import generate
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+from django.apps import apps
 
 # ==========================================
 # 1. MANAGERS
@@ -47,6 +47,7 @@ class CustomUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError(_('Superuser must have is_superuser=True.'))
         user = self.create_user(email, password, **extra_fields)
+        Profil = apps.get_model('users', 'Profil')
         Profil.objects.create(user=user, nom_complet=extra_fields.get('nom_complet', 'Super Admin'))
         return user
        
@@ -86,7 +87,489 @@ class ENSPMHubBaseModel(models.Model):
         self.save(update_fields=['deleted', 'deleted_at'])
 
 # ==========================================
-# 3. AUTHENTIFICATION : USER & PROFIL
+# 1. RÉFÉRENCES ACADÉMIQUES
+# ==========================================
+
+class AnneePromotion(ENSPMHubBaseModel):
+    """
+    Années de sortie valides pour les alumni.
+    Permet un contrôle strict et facilite les statistiques par promotion.
+    """
+    annee = models.SmallIntegerField(
+        unique=True,
+        validators=[MinValueValidator(1950), MaxValueValidator(2100)],
+        verbose_name=_("Année")
+    )
+    libelle = models.CharField(
+        max_length=50,
+        verbose_name=_("Libellé"),
+        help_text=_("Ex: Promotion 2020, Promo 2020, etc.")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Informations supplémentaires sur cette promotion")
+    )
+    est_active = models.BooleanField(
+        default=True,
+        verbose_name=_("Active"),
+        help_text=_("Permet de désactiver temporairement une année")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage"),
+        help_text=_("Plus petit = affiché en premier")
+    )
+
+    class Meta:
+        verbose_name = _("Année de promotion")
+        verbose_name_plural = _("Années de promotion")
+        db_table = 'annee_promotion'
+        ordering = ['-annee']
+
+    def __str__(self):
+        return f"{self.libelle} ({self.annee})"
+
+
+class Domaine(ENSPMHubBaseModel):
+    """
+    Domaines d'études et de spécialisation.
+    Ex: Génie Civil, Génie Informatique, Génie Mécanique, etc.
+    """
+    nom = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name=_("Nom"),
+        help_text=_("Nom complet du domaine")
+    )
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_("Code"),
+        help_text=_("Code court: GCI, GIM, GEL, etc.")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Présentation du domaine, débouchés, compétences")
+    )
+    categorie = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name=_("Catégorie"),
+        help_text=_("Ex: Génie, Santé, Sciences Sociales")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Domaine")
+        verbose_name_plural = _("Domaines")
+        db_table = 'domaine'
+        ordering = ['ordre_affichage', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.code})"
+
+
+class Filiere(ENSPMHubBaseModel):
+    """
+    Filières spécifiques au sein des domaines.
+    Ex: Domaine "Génie Informatique" → Filières: IA, Cybersécurité, etc.
+    """
+    NIVEAU_CHOICES = [
+        ('licence', 'Licence'),
+        ('ingenieur', 'Ingénieur'),
+        ('master', 'Master'),
+        ('doctorat', 'Doctorat'),
+        ('autre', 'Autre'),
+    ]
+
+    domaine = models.ForeignKey(
+        Domaine,
+        on_delete=models.CASCADE,
+        related_name='filieres',
+        verbose_name=_("Domaine")
+    )
+    nom = models.CharField(
+        max_length=150,
+        verbose_name=_("Nom de la filière")
+    )
+    code = models.CharField(
+        max_length=20,
+        verbose_name=_("Code")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description")
+    )
+    niveau = models.CharField(
+        max_length=50,
+        choices=NIVEAU_CHOICES,
+        verbose_name=_("Niveau")
+    )
+    duree_annees = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Durée (années)")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Active")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Filière")
+        verbose_name_plural = _("Filières")
+        db_table = 'filiere'
+        unique_together = ('domaine', 'code')
+        ordering = ['domaine', 'ordre_affichage', 'nom']
+
+    def __str__(self):
+        return f"{self.domaine.code} - {self.nom}"
+
+
+# ==========================================
+# 2. RÉFÉRENCES PROFESSIONNELLES
+# ==========================================
+
+class SecteurActivite(ENSPMHubBaseModel):
+    """
+    Secteurs d'activité économique pour les organisations.
+    Supporte une hiérarchie (secteur parent → sous-secteurs).
+    """
+    nom = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name=_("Nom du secteur")
+    )
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_("Code"),
+        help_text=_("Ex: TECH, BTP, SANTE, FINANCE")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description")
+    )
+    categorie_parent = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sous_secteurs',
+        verbose_name=_("Secteur parent"),
+        help_text=_("Permet une hiérarchie: Technologie > Informatique > IA")
+    )
+    icone = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name=_("Icône")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Secteur d'activité")
+        verbose_name_plural = _("Secteurs d'activité")
+        db_table = 'secteur_activite'
+        ordering = ['ordre_affichage', 'nom']
+
+    def __str__(self):
+        if self.categorie_parent:
+            return f"{self.categorie_parent.nom} > {self.nom}"
+        return self.nom
+
+    @property
+    def nom_complet(self):
+        """Retourne le chemin complet dans la hiérarchie"""
+        if self.categorie_parent:
+            return f"{self.categorie_parent.nom_complet} > {self.nom}"
+        return self.nom
+
+
+class Poste(ENSPMHubBaseModel):
+    """
+    Intitulés de postes standardisés.
+    Évite les variations: "Développeur", "Dev", "Software Engineer".
+    """
+    NIVEAU_CHOICES = [
+        ('junior', 'Junior'),
+        ('intermediaire', 'Intermédiaire'),
+        ('senior', 'Senior'),
+        ('lead', 'Lead'),
+        ('manager', 'Manager'),
+        ('directeur', 'Directeur'),
+        ('vp', 'Vice-Président'),
+        ('c_level', 'C-Level'),
+    ]
+
+    titre = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name=_("Titre du poste")
+    )
+    categorie = models.CharField(
+        max_length=50,
+        verbose_name=_("Catégorie"),
+        help_text=_("Ex: Technique, Management, Commercial, RH")
+    )
+    niveau = models.CharField(
+        max_length=50,
+        choices=NIVEAU_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Niveau hiérarchique")
+    )
+    secteur = models.ForeignKey(
+        SecteurActivite,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='postes',
+        verbose_name=_("Secteur d'activité")
+    )
+    synonymes = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("Synonymes"),
+        help_text=_("Liste des variantes: ['Dev', 'Développeur', 'Software Engineer']")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Poste")
+        verbose_name_plural = _("Postes")
+        db_table = 'poste'
+        ordering = ['categorie', 'ordre_affichage', 'titre']
+
+    def __str__(self):
+        return self.titre
+
+
+# ==========================================
+# 3. RÉFÉRENCES FINANCIÈRES
+# ==========================================
+
+class Devise(ENSPMHubBaseModel):
+    """
+    Devises monétaires pour les salaires et prix de formation.
+    Permet la conversion et l'affichage cohérent.
+    """
+    code = models.CharField(
+        max_length=10,
+        unique=True,
+        verbose_name=_("Code"),
+        help_text=_("Code ISO 4217: XAF, EUR, USD")
+    )
+    nom = models.CharField(
+        max_length=100,
+        verbose_name=_("Nom complet")
+    )
+    symbole = models.CharField(
+        max_length=10,
+        verbose_name=_("Symbole"),
+        help_text=_("FCFA, €, $")
+    )
+    taux_change_usd = models.DecimalField(
+        max_digits=15,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name=_("Taux de change USD"),
+        help_text=_("1 USD = X devise (mis à jour régulièrement)")
+    )
+    date_mise_a_jour_taux = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Date mise à jour du taux")
+    )
+    est_active = models.BooleanField(
+        default=True,
+        verbose_name=_("Active")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage"),
+        help_text=_("XAF en premier pour le Cameroun")
+    )
+
+    class Meta:
+        verbose_name = _("Devise")
+        verbose_name_plural = _("Devises")
+        db_table = 'devise'
+        ordering = ['ordre_affichage', 'nom']
+
+    def __str__(self):
+        return f"{self.code} ({self.symbole})"
+
+
+# ==========================================
+# 4. RÉFÉRENCES TITRES & HONORIFIQUES
+# ==========================================
+
+class TitreHonorifique(ENSPMHubBaseModel):
+    """
+    Titres honorifiques et académiques.
+    Ex: Dr., Prof., Ing., M., Mme
+    """
+    TYPE_TITRE_CHOICES = [
+        ('academique', 'Académique'),
+        ('professionnel', 'Professionnel'),
+        ('honorifique', 'Honorifique'),
+        ('civilite', 'Civilité'),
+    ]
+
+    titre = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_("Titre"),
+        help_text=_("Abréviation: Dr., Prof., Ing.")
+    )
+    nom_complet = models.CharField(
+        max_length=100,
+        verbose_name=_("Nom complet"),
+        help_text=_("Docteur, Professeur, Ingénieur")
+    )
+    type_titre = models.CharField(
+        max_length=20,
+        choices=TYPE_TITRE_CHOICES,
+        verbose_name=_("Type de titre")
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name=_("Description"),
+        help_text=_("Explication du titre, conditions d'obtention")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Titre honorifique")
+        verbose_name_plural = _("Titres honorifiques")
+        db_table = 'titre_honorifique'
+        ordering = ['ordre_affichage', 'titre']
+
+    def __str__(self):
+        return f"{self.titre} ({self.nom_complet})"
+
+
+# ==========================================
+# 5. RÉFÉRENCES RÉSEAUX SOCIAUX
+# ==========================================
+
+class ReseauSocial(ENSPMHubBaseModel):
+    """
+    Réseaux sociaux et plateformes professionnelles.
+    Plus flexible que des choices hardcodés.
+    """
+    TYPE_RESEAU_CHOICES = [
+        ('professionnel', 'Professionnel'),
+        ('social', 'Social'),
+        ('academique', 'Académique'),
+        ('technique', 'Technique'),
+        ('portfolio', 'Portfolio'),
+    ]
+
+    nom = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name=_("Nom"),
+        help_text=_("LinkedIn, Facebook, GitHub, etc.")
+    )
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_("Code"),
+        help_text=_("linkedin, facebook, github (minuscules, sans espaces)")
+    )
+    url_base = models.URLField(
+        verbose_name=_("URL de base"),
+        help_text=_("https://linkedin.com/in/, https://github.com/")
+    )
+    type_reseau = models.CharField(
+        max_length=20,
+        choices=TYPE_RESEAU_CHOICES,
+        verbose_name=_("Type de réseau")
+    )
+    pattern_validation = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("Pattern de validation"),
+        help_text=_("Expression régulière pour valider l'URL")
+    )
+    placeholder_exemple = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("Exemple de placeholder"),
+        help_text=_("Ex: votre-nom ou username")
+    )
+    est_actif = models.BooleanField(
+        default=True,
+        verbose_name=_("Actif")
+    )
+    ordre_affichage = models.IntegerField(
+        default=0,
+        verbose_name=_("Ordre d'affichage")
+    )
+
+    class Meta:
+        verbose_name = _("Réseau social")
+        verbose_name_plural = _("Réseaux sociaux")
+        db_table = 'reseau_social'
+        ordering = ['ordre_affichage', 'nom']
+
+    def __str__(self):
+        return self.nom
+
+
+
+# ==========================================
+# 3. AUTHENTIFICATION : USER
 # ==========================================
 class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     """Modèle d'authentification minimal"""
@@ -137,69 +620,6 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     def is_active(self):
         return self.est_actif and not self.deleted
 
-
-class Profil(ENSPMHubBaseModel):
-    """Profil riche lié 1:1 à User"""
-    STATUT_GLOBAL_CHOICES = [
-        ('etudiant', 'Étudiant'),
-        ('alumni', 'Alumni'),
-        ('enseignant', 'Enseignant'),
-        ('personnel_admin', 'Personnel Administratif'),
-        ('personnel_technique', 'Personnel Technique'),
-        ('partenaire', 'Partenaire'),
-    ]
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profil')
-    nom_complet = models.CharField(max_length=255, verbose_name=_("Nom complet"))
-    matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"), db_index=True)
-    titre = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Titre (Dr., Prof., etc.)"))
-    statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
-    travailleur = models.BooleanField(default=False, verbose_name=_("Travailleur"))
-    annee_sortie = models.SmallIntegerField(null=True, blank=True, verbose_name=_("Année de sortie"))
-    adresse = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Adresse"))
-    telephone = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
-    photo_profil = models.ImageField(upload_to='photos_profils/', null=True, blank=True, verbose_name=_("Photo de profil"))
-    domaine = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Domaine"))
-    bio = models.TextField(null=True, blank=True, verbose_name=_("Bio"))
-    slug = models.SlugField(unique=True, null=True, blank=True, verbose_name=_("Slug"), db_index=True)
-
-    class Meta:
-        verbose_name = _("Profil")
-        db_table = 'profil'
-
-        
-            
-    def __str__(self):
-        return self.nom_complet or self.user.email
-    
-
-# ==========================================
-# 4. RÉSEAUX SOCIAUX
-# ==========================================
-class LienReseauSocial(ENSPMHubBaseModel):
-    NOM_RESEAU_CHOICES = [
-        ('LinkedIn', 'LinkedIn'),
-        ('Facebook', 'Facebook'),
-        ('Twitter', 'Twitter'),
-        ('Instagram', 'Instagram'),
-        ('GitHub', 'GitHub'),
-        ('ResearchGate', 'ResearchGate'),
-        ('GoogleScholar', 'Google Scholar'),
-        ('SiteWeb', 'Site Web'),
-        ('Portfolio', 'Portfolio'),
-    ]
-
-    profil = models.ForeignKey(Profil, on_delete=models.CASCADE, related_name='liens_reseaux')
-    nom_reseau = models.CharField(max_length=50, choices=NOM_RESEAU_CHOICES)
-    url = models.URLField(verbose_name=_("URL"))
-    est_actif = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = _("Lien réseau social")
-        db_table = 'lien_reseau_social'
-
-    def __str__(self):
-        return f"{self.nom_reseau} - {self.url}"
 
 
 

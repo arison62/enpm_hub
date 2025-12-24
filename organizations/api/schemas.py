@@ -4,7 +4,7 @@ from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date, datetime
 from pydantic import UUID4
-from core.api.schemas import ProfilOutSchema, PaginationMetaSchema
+from users.api.schemas import ProfilBaseOut, PaginationMetaSchema
 from organizations.models import Organisation, MembreOrganisation, AbonnementOrganisation
 
 
@@ -131,7 +131,7 @@ class OrganisationGlobalStatsSchema(Schema):
 
 class MembreOrganisationOutSchema(ModelSchema):
     """Schéma de sortie pour un membre"""
-    profil: ProfilOutSchema
+    profil: ProfilBaseOut
 
     class Meta:
         model = MembreOrganisation
@@ -173,7 +173,7 @@ class MembreListResponseSchema(Schema):
 
 class AbonnementOrganisationOutSchema(ModelSchema):
     """Schéma de sortie pour un abonnement"""
-    profil: ProfilOutSchema
+    profil: ProfilBaseOut
     organisation: OrganisationOutSchema
     
     class Meta:
@@ -183,13 +183,13 @@ class AbonnementOrganisationOutSchema(ModelSchema):
 
 class FollowerSchema(Schema):
     """Schéma simplifié pour un abonné"""
-    profil: ProfilOutSchema
+    profil: ProfilBaseOut
     date_abonnement: datetime
 
 
 class FollowerListResponseSchema(Schema):
     """Réponse paginée pour liste d'abonnés"""
-    items: List[ProfilOutSchema]
+    items: List[ProfilBaseOut]
     meta: PaginationMetaSchema
 
 

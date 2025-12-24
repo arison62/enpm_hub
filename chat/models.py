@@ -12,7 +12,7 @@ class Groupe(ENSPMHubBaseModel):
         ('administratif', 'Administratif')
     ]
 
-    createur_profil = models.ForeignKey('core.Profil', on_delete=models.SET_NULL, null=True, related_name='groupes_crees')
+    createur_profil = models.ForeignKey('users.Profil', on_delete=models.SET_NULL, null=True, related_name='groupes_crees')
     nom_groupe = models.CharField(max_length=150, unique=True)
     photo_groupe = models.ImageField(upload_to="photos_groups/", null=True, blank=True)
     description = models.TextField()
@@ -27,7 +27,7 @@ class Groupe(ENSPMHubBaseModel):
 class MembreGroupe(ENSPMHubBaseModel):
     ROLE_MEMBRE_CHOICES = [('membre', 'Membre'), ('moderateur', 'Modérateur'), ('admin', 'Admin')]
 
-    profil = models.ForeignKey('core.Profil', on_delete=models.CASCADE)
+    profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
     groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='membres')
     role_membre = models.CharField(max_length=20, choices=ROLE_MEMBRE_CHOICES, default='membre')
     date_adhesion = models.DateTimeField(auto_now_add=True)
@@ -46,7 +46,7 @@ class Message(ENSPMHubBaseModel):
     ]
 
     groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='messages')
-    profil = models.ForeignKey('core.Profil', on_delete=models.CASCADE)
+    profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
     texte = models.TextField(null=True, blank=True)
     fichier= models.FileField(upload_to="messages_fichier/", null=True, blank=True)
     type_fichier = models.CharField(max_length=20, choices=TYPE_FICHIER_CHOICES, null=True, blank=True)
@@ -59,7 +59,7 @@ class Message(ENSPMHubBaseModel):
 
 class ValidationGroupe(ENSPMHubBaseModel):
     groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='validations')
-    validateur_profil = models.ForeignKey('core.Profil', on_delete=models.CASCADE)
+    validateur_profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
     est_approuve = models.BooleanField()
     commentaire = models.TextField(null=True, blank=True)
     date_validation = models.DateTimeField(auto_now_add=True)

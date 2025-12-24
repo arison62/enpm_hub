@@ -122,13 +122,14 @@ INSTALLED_APPS = [
     "django_vite",
     "inertia",
     "ninja",
+    'django_countries',
     
     "home",
     "core",
-    "feeds",
     "users",
     "organizations",
     "opportunities",
+    "feeds",
     "chat",
     "stats",
 ]

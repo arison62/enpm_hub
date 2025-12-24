@@ -4,7 +4,8 @@ from typing import List, Tuple, Dict
 from uuid import UUID
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from core.models import User, Profil
+from core.models import User
+from users.models import Profil
 from organizations.models import Organisation, AbonnementOrganisation
 from core.api.exceptions import BadRequestAPIException, NotFoundAPIException
 

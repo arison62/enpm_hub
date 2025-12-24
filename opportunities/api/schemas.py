@@ -4,7 +4,7 @@ from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date
 from decimal import Decimal
-from core.api.schemas import ProfilOutSchema, PaginationMetaSchema
+from users.api.schemas import ProfilBaseOut, PaginationMetaSchema
 from organizations.api.schemas import OrganisationOutSchema
 from opportunities.models import Stage, Emploi, Formation
 
@@ -15,20 +15,24 @@ from opportunities.models import Stage, Emploi, Formation
 
 class StageOutSchema(ModelSchema):
     """Schéma de sortie pour un stage"""
-    createur_profil: Optional[ProfilOutSchema] = None
+    createur_profil: Optional[ProfilBaseOut] = None
     organisation: Optional[OrganisationOutSchema] = None
-    validateur_profil: Optional[ProfilOutSchema] = None
+    validateur_profil: Optional[ProfilBaseOut] = None
+
 
     class Meta:
         model = Stage
         fields = [
             'id', 'titre', 'slug', 'nom_structure', 'description', 'type_stage',
-            'lieu', 'ville', 'pays', 'email_contact', 'telephone_contact',
+            'adresse', 'ville', 'pays', 'email_contact', 'telephone_contact',
             'lien_offre_original', 'lien_candidature', 'date_debut', 'date_fin',
             'date_publication', 'statut', 'est_valide', 'date_validation',
             'commentaire_validation', 'created_at', 'updated_at'
         ]
 
+    @staticmethod
+    def resolve_pays(obj):
+        return obj.pays.name
 
 class StageCreateSchema(Schema):
     """Schéma pour création d'un stage"""
@@ -108,21 +112,24 @@ class StageStatsSchema(Schema):
 
 class EmploiOutSchema(ModelSchema):
     """Schéma de sortie pour un emploi"""
-    createur_profil: Optional[ProfilOutSchema] = None
+    createur_profil: Optional[ProfilBaseOut] = None
     organisation: Optional[OrganisationOutSchema] = None
-    validateur_profil: Optional[ProfilOutSchema] = None
+    validateur_profil: Optional[ProfilBaseOut] = None
 
     class Meta:
         model = Emploi
         fields = [
             'id', 'titre', 'slug', 'nom_structure', 'description', 'type_emploi',
-            'lieu', 'ville', 'pays', 'email_contact', 'telephone_contact',
+            'adresse', 'ville', 'pays', 'email_contact', 'telephone_contact',
             'lien_offre_original', 'lien_candidature', 'date_publication',
             'date_expiration', 'salaire_min', 'salaire_max', 'devise',
             'statut', 'est_valide', 'date_validation', 'commentaire_validation',
             'created_at', 'updated_at'
         ]
 
+    @staticmethod
+    def resolve_pays(obj):
+        return obj.pays.name
 
 class EmploiCreateSchema(Schema):
     """Schéma pour création d'un emploi"""
@@ -204,21 +211,24 @@ class EmploiStatsSchema(Schema):
 
 class FormationOutSchema(ModelSchema):
     """Schéma de sortie pour une formation"""
-    createur_profil: Optional[ProfilOutSchema] = None
+    createur_profil: Optional[ProfilBaseOut] = None
     organisation: Optional[OrganisationOutSchema] = None
-    validateur_profil: Optional[ProfilOutSchema] = None
+    validateur_profil: Optional[ProfilBaseOut] = None
 
     class Meta:
         model = Formation
         fields = [
             'id', 'titre', 'slug', 'nom_structure', 'description', 'type_formation',
-            'lieu', 'ville', 'pays', 'email_contact', 'telephone_contact',
+            'adresse', 'ville', 'pays', 'email_contact', 'telephone_contact',
             'lien_formation', 'lien_inscription', 'date_debut', 'date_fin',
             'date_publication', 'est_payante', 'prix', 'devise', 'duree_heures',
             'statut', 'est_valide', 'date_validation', 'commentaire_validation',
             'created_at', 'updated_at'
         ]
 
+    @staticmethod
+    def resolve_pays(obj):
+        return obj.pays.name
 
 class FormationCreateSchema(Schema):
     """Schéma pour création d'une formation"""

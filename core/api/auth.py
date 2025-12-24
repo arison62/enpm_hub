@@ -1,15 +1,15 @@
 # core/api/auth.py
 from ninja import Router
 from django.http import HttpRequest
+from core.api.schemas import EmailSchema, LoginSchema, RefreshTokenSchema, TokenSchema
 from core.services.auth_service import AuthService, jwt_auth
 from django.views.decorators.csrf import csrf_exempt
-from core.api.schemas import LoginSchema, TokenSchema, UserDetailSchema, RefreshTokenSchema, EmailSchema, MessageSchema, ValidationErrorSchema
+from users.api.schemas import UserDetailOut,  MessageResponse, ValidationErrorResponse
 from ninja.security import django_auth
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from ninja.errors import HttpError
 from core.models import User
-from core.services.user_service import user_service
+from users.services.user_service import user_service
 from core.services.email_service import EmailTemplates
 
 # Création du Router
@@ -17,7 +17,7 @@ auth_router = Router(tags=["Authentification"])
 
 @auth_router.post(
     "/login", 
-    response={200: TokenSchema, 401: MessageSchema, 422: ValidationErrorSchema},
+    response={200: TokenSchema, 401: MessageResponse, 422: ValidationErrorResponse  },
     summary="Authentification par Email"
 )
 def login_endpoint(request: HttpRequest, payload: LoginSchema):
@@ -34,7 +34,7 @@ def login_endpoint(request: HttpRequest, payload: LoginSchema):
 
 @auth_router.post(
     "/logout", 
-    response={204: None, 401: MessageSchema},
+    response={204: None, 401: MessageResponse},
     auth=[django_auth, jwt_auth], # Permet la déconnexion via Session ou JWT
     summary="Déconnexion de l'utilisateur"
 )
@@ -50,7 +50,7 @@ def logout_endpoint(request: HttpRequest):
 
 @auth_router.post(
     "/refresh",
-    response={200: TokenSchema, 401: MessageSchema, 422: ValidationErrorSchema},
+    response={200: TokenSchema, 401: MessageResponse, 422: ValidationErrorResponse},
     summary="Rafraîchit un token JWT"
 )
 def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
@@ -82,7 +82,7 @@ def refresh_token(request: HttpRequest, payload: RefreshTokenSchema):
 
 @auth_router.get(
     "/me", 
-    response={200: UserDetailSchema, 401: MessageSchema},
+    response={200: UserDetailOut, 401: MessageResponse},
     auth=[jwt_auth, django_auth], # Accès par JWT (API) ou Session (Template/Inertia)
     summary="Récupère les informations de l'utilisateur connecté"
 )
@@ -96,7 +96,7 @@ def get_current_user(request: HttpRequest):
 
 @auth_router.post(
     "/recover-password",
-    response={204: None, 422: ValidationErrorSchema},
+    response={204: None, 422: ValidationErrorResponse},
     summary="Lance la procédure de récupération de mot de passe"
 )
 def recover_password_endpoint(request: HttpRequest, payload: EmailSchema):
@@ -110,7 +110,7 @@ def recover_password_endpoint(request: HttpRequest, payload: EmailSchema):
         user, new_password = result
         EmailTemplates.send_password_recovery_email(
             user_email=user.email,
-            user_name=user.profil.nom_complet,
+            user_name=user.profil.nom_complet, # type: ignore
             temp_password=new_password
         )
 

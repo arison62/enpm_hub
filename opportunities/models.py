@@ -2,6 +2,7 @@
 from django.db import models
 from core.models import ENSPMHubBaseModel
 from django.utils.translation import gettext_lazy as _
+from django_countries.fields import CountryField
 
 
 class Stage(ENSPMHubBaseModel):
@@ -22,7 +23,7 @@ class Stage(ENSPMHubBaseModel):
 
     # Relations
     createur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -53,9 +54,9 @@ class Stage(ENSPMHubBaseModel):
     type_stage = models.CharField(max_length=20, choices=TYPE_STAGE_CHOICES, verbose_name=_("Type de stage"))
     
     # Localisation
-    lieu = models.CharField(max_length=150, verbose_name=_("Lieu"))
+    adresse = models.CharField(max_length=150, verbose_name=_("Lieu"))
     ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
-    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
     
     # Contact
     email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
@@ -74,7 +75,7 @@ class Stage(ENSPMHubBaseModel):
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
     est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
     validateur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -89,6 +90,11 @@ class Stage(ENSPMHubBaseModel):
         verbose_name_plural = _("Stages")
         db_table = 'stage'
         ordering = ['-date_publication']
+        indexes = [
+            models.Index(fields=['statut', '-date_publication']),
+            models.Index(fields=['ville', 'pays']),
+            models.Index(fields=['type_stage', 'statut']),
+        ]
 
     def __str__(self):
         return self.titre
@@ -115,7 +121,7 @@ class Emploi(ENSPMHubBaseModel):
 
     # Relations
     createur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -151,9 +157,10 @@ class Emploi(ENSPMHubBaseModel):
     )
     
     # Localisation
-    lieu = models.CharField(max_length=150, verbose_name=_("Lieu"))
+    adresse = models.CharField(max_length=150, verbose_name=_("Lieu"))
     ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
-    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
+
     
     # Contact
     email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
@@ -168,27 +175,19 @@ class Emploi(ENSPMHubBaseModel):
     date_expiration = models.DateField(null=True, blank=True, verbose_name=_("Date d'expiration"))
     
     # Salaire
-    salaire_min = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name=_("Salaire minimum")
+    salaire_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    salaire_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        related_name='emplois',
+        verbose_name=_("Devise")
     )
-    salaire_max = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name=_("Salaire maximum")
-    )
-    devise = models.CharField(max_length=10, default='XAF', verbose_name=_("Devise"))
-    
     # Statut et validation
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
     est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
     validateur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -203,7 +202,30 @@ class Emploi(ENSPMHubBaseModel):
         verbose_name_plural = _("Emplois")
         db_table = 'emploi'
         ordering = ['-date_publication']
+        indexes = [
+            models.Index(fields=['statut', 'est_valide'], name='emploi_statut_est_valide'),
+            models.Index(fields=['date_publication'], name='emploi_date_publication'),   
+        ]
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        
+        # Validation des salaires
+        if self.salaire_min and self.salaire_max:
+            if self.salaire_min > self.salaire_max:
+                raise ValidationError({
+                    'salaire_max': _("Le salaire maximum doit être supérieur au minimum")
+                })
+        
+        # Validation de la devise si salaire présent
+        if (self.salaire_min or self.salaire_max) and not self.devise:
+            raise ValidationError({
+                'devise': _("La devise est obligatoire si un salaire est spécifié")
+            })
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
     def __str__(self):
         return self.titre
 
@@ -226,7 +248,7 @@ class Formation(ENSPMHubBaseModel):
 
     # Relations
     createur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -260,9 +282,9 @@ class Formation(ENSPMHubBaseModel):
     )
     
     # Localisation
-    lieu = models.CharField(max_length=150, null=True, blank=True, verbose_name=_("Lieu"))
+    adresse = models.CharField(max_length=150, null=True, blank=True, verbose_name=_("Lieu"))
     ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
-    pays = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Pays"))
+    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
     
     # Contact
     email_contact = models.EmailField(null=True, blank=True, verbose_name=_("Email de contact"))
@@ -279,15 +301,13 @@ class Formation(ENSPMHubBaseModel):
     
     # Prix
     est_payante = models.BooleanField(default=False, verbose_name=_("Formation payante"))
-    prix = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name=_("Prix")
+    prix = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    devise = models.ForeignKey(
+        'core.Devise',
+        on_delete=models.PROTECT,
+        related_name='formations',
+        verbose_name=_("Devise")
     )
-    devise = models.CharField(max_length=10, default='XAF', verbose_name=_("Devise"))
-    
     # Durée
     duree_heures = models.IntegerField(null=True, blank=True, verbose_name=_("Durée en heures"))
     
@@ -295,7 +315,7 @@ class Formation(ENSPMHubBaseModel):
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente', verbose_name=_("Statut"))
     est_valide = models.BooleanField(default=False, verbose_name=_("Validé"))
     validateur_profil = models.ForeignKey(
-        'core.Profil',
+        'users.Profil',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -313,3 +333,6 @@ class Formation(ENSPMHubBaseModel):
 
     def __str__(self):
         return self.titre
+    
+ 
+    

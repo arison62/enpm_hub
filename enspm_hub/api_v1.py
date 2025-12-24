@@ -7,7 +7,7 @@ from django.conf import settings
 import logging
 
 from core.api.auth import auth_router
-from core.api.users import users_router
+from users.api.views import users_router
 from organizations.api.views import organisations_router
 from opportunities.api.views import (
     stages_router,

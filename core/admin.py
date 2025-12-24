@@ -4,7 +4,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
-from core.models import User, Profil, AuditLog
+from core.models import User, AuditLog
+from users.models import Profil
 
 
 # ==========================================
@@ -18,7 +19,7 @@ class ProfilInline(admin.StackedInline):
     fields = (
         'nom_complet', 'matricule', 'titre', 'statut_global',
         'travailleur', 'annee_sortie', 'telephone', 'domaine',
-        'bio', 'photo_profil'
+        'bio', 'photo_profil', 'slug'
     )
     readonly_fields = ('id', 'created_at', 'updated_at')
 

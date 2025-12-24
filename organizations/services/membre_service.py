@@ -6,7 +6,8 @@ from uuid import UUID
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from core.models import User, Profil
+from core.models import User
+from users.models import Profil
 from organizations.models import Organisation, MembreOrganisation
 from core.api.exceptions import (
     PermissionDeniedAPIException,
