@@ -6,14 +6,12 @@ from django.contrib.auth.hashers import make_password
 from django.utils.crypto import get_random_string
 from django.core.files.uploadedfile import UploadedFile
 from django.core.files.storage import default_storage
-from django.conf import settings
 from django.utils.text import slugify
-from django.db.models import Q, Prefetch
+from django.db.models import Q
 from nanoid import generate
 from core.models import User
 from users.models import Profil, LienReseauSocialProfil
 from core.services.audit_service import audit_log_service, AuditLog
-from core.services.email_service import EmailTemplates
 from PIL import Image
 from io import BytesIO
 

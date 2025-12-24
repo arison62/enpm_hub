@@ -102,7 +102,6 @@ class OrganisationService:
                 profil=acting_user.profil, # type: ignore
                 organisation=new_organisation,
                 role_organisation='administrateur_page',
-                poste="Créateur de la page",
                 est_actif=True
             )
         
@@ -115,7 +114,7 @@ class OrganisationService:
 
     @staticmethod
     def list_organisations(
-        filters: Dict = None,
+        filters: Optional[Dict] = None,
         page: int = 1,
         page_size: int = 20,
         include_stats: bool = False
@@ -220,7 +219,10 @@ class OrganisationService:
             queryset = Organisation.objects
             
             if include_relations:
-                queryset = queryset.prefetch_related(
+                queryset = queryset.select_related(
+                    'secteur_activite',
+                    'secteur_activite__categorie_parent',
+                    ).prefetch_related(
                     Prefetch(
                         'membres',
                         queryset=MembreOrganisation.objects.filter(est_actif=True)
@@ -248,7 +250,10 @@ class OrganisationService:
             Organisation ou None
         """
         try:
-            return Organisation.objects.prefetch_related(
+            return Organisation.objects.select_related(
+                'secteur_activite',
+                'secteur_activite__categorie_parent',
+                ).prefetch_related(
                 Prefetch(
                     'membres',
                     queryset=MembreOrganisation.objects.filter(est_actif=True)

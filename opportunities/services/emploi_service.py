@@ -123,7 +123,7 @@ class EmploiService:
     
     @staticmethod
     def list_emplois(
-        filters: Dict = None,
+        filters: Optional[Dict] = None,
         page: int = 1,
         page_size: int = 20,
         include_pending: bool = False
@@ -140,7 +140,7 @@ class EmploiService:
                 deleted=False
             )
         
-        queryset = queryset.select_related('createur_profil', 'organisation')
+        queryset = queryset.select_related('devise','createur_profil', 'organisation')
         
         if filters:
             if search := filters.get('search'):
@@ -185,7 +185,7 @@ class EmploiService:
             statut='en_attente',
             est_valide=False,
             deleted=False
-        ).select_related('createur_profil', 'organisation').order_by('date_publication')
+        ).select_related('devise','createur_profil', 'organisation').order_by('date_publication')
         
         total_count = queryset.count()
         start = (page - 1) * page_size
@@ -199,6 +199,7 @@ class EmploiService:
     def get_emploi_by_id(emploi_id: UUID) -> Optional[Emploi]:
         try:
             return Emploi.objects.select_related(
+                'devise',
                 'createur_profil',
                 'organisation',
                 'validateur_profil'
@@ -210,6 +211,7 @@ class EmploiService:
     def get_emploi_by_slug(slug: str) -> Optional[Emploi]:
         try:
             return Emploi.objects.select_related(
+                'devise',
                 'createur_profil',
                 'organisation',
                 'validateur_profil'

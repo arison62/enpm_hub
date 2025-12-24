@@ -7,10 +7,19 @@ from datetime import datetime
 from core.models import User
 from users.models import Profil, LienReseauSocialProfil
 from core.api.schemas import PaginationMetaSchema
+from core.api.schemas import (
+    AnneePromotionSimple, DomaineSimple, TitreHonorifiqueSimple,
+    SecteurActiviteSimple, PosteSimple, DeviseSimple, ReseauSocialSimple
+)
 
 class ProfilBaseOut(ModelSchema):
     """Schéma de base pour Profil (sans réseaux sociaux)"""
     photo_profil: Optional[str] = None
+    titre : Optional[TitreHonorifiqueSimple] = None
+    domaine : Optional[DomaineSimple] = None
+    pays : Optional[str]
+    pays_nom : Optional[str]
+    annee_sortie : Optional[AnneePromotionSimple] = None
 
     class Meta:
         model = Profil
@@ -25,20 +34,47 @@ class ProfilBaseOut(ModelSchema):
         return obj.photo_profil.url if obj.photo_profil else None
     
     @staticmethod
-    def resolve_pays(obj):
-        return obj.pays.name
+    def resolve_titre(obj):
+        """Retourne l'objet TitreHonorifique complet"""
+        if obj.titre:
+            return {
+                "id": obj.titre.id,
+                "titre": obj.titre.titre,
+                "nom_complet": obj.titre.nom_complet
+            }
+        return None
     
     @staticmethod
     def resolve_domaine(obj):
-        return obj.domaine.nom
-    
-    @staticmethod
-    def resolve_titre(obj):
-        return obj.titre.titre
+        """Retourne l'objet Domaine complet"""
+        if obj.domaine:
+            return {
+                "id": obj.domaine.id,
+                "nom": obj.domaine.nom,
+                "code": obj.domaine.code
+            }
+        return None
     
     @staticmethod
     def resolve_annee_sortie(obj):
-        return obj.annee_sortie.libelle
+        """Retourne l'objet AnneePromotion complet"""
+        if obj.annee_sortie:
+            return {
+                "id": obj.annee_sortie.id,
+                "annee": obj.annee_sortie.annee,
+                "libelle": obj.annee_sortie.libelle
+            }
+        return None
+    
+    @staticmethod
+    def resolve_pays(obj):
+        """Retourne le code ISO du pays"""
+        return obj.pays.code if obj.pays else None
+    
+    @staticmethod
+    def resolve_pays_nom(obj):
+        """Retourne le nom du pays"""
+        return obj.pays.name if obj.pays else None
 
 class ProfilCompleteOut(ProfilBaseOut):
     """Schéma complet pour Profil avec réseaux sociaux (étend ProfilBaseOut)"""
@@ -46,10 +82,9 @@ class ProfilCompleteOut(ProfilBaseOut):
 
     @staticmethod
     def resolve_liens_reseaux(obj):
-        return [
-            LienReseauSocialOut.from_orm(lien)
-            for lien in obj.liens_reseaux.filter(est_actif=True, deleted=False)
-        ]
+        """Retourne les liens réseaux actifs"""
+        return list(obj.liens_reseaux.filter(est_actif=True).select_related('reseau'))
+
 
 # ==========================================
 # SCHÉMAS CRÉATION/MISE À JOUR PROFIL
@@ -100,10 +135,20 @@ class ProfilUpdate(ModelSchema):
 
 class LienReseauSocialOut(ModelSchema):
     """Schéma sortie pour LienReseauSocialProfil"""
+    reseau: ReseauSocialSimple
     class Meta:
         model = LienReseauSocialProfil
         fields = ['id', 'reseau', 'url', 'est_actif', 'created_at', 'updated_at']
 
+    @staticmethod
+    def resolve_reseau(obj):
+        """Retourne l'objet ReseauSocial complet"""
+        return {
+            "id": obj.reseau.id,
+            "nom": obj.reseau.nom,
+            "code": obj.reseau.code,
+            "url_base": obj.reseau.url_base
+        }
 class LienReseauSocialCreate(Schema):
     """Schéma création lien réseau social"""
     reseau: UUID4

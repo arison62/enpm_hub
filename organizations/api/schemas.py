@@ -4,6 +4,7 @@ from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date, datetime
 from pydantic import UUID4
+from core.api.schemas import PosteSimple, SecteurActiviteSimple
 from users.api.schemas import ProfilBaseOut, PaginationMetaSchema
 from organizations.models import Organisation, MembreOrganisation, AbonnementOrganisation
 
@@ -12,9 +13,12 @@ from organizations.models import Organisation, MembreOrganisation, AbonnementOrg
 # SCHÉMAS ORGANISATION
 # ==========================================
 
-class OrganisationOutSchema(ModelSchema):
+class OrganisationOut(ModelSchema):
     """Schéma de sortie simple pour une organisation"""
     logo: Optional[str] = None
+    pays: Optional[str] = None
+    pays_nom: Optional[str] = None
+    secteur_activite: Optional[SecteurActiviteSimple] = None
 
     class Meta:
         model = Organisation
@@ -28,22 +32,29 @@ class OrganisationOutSchema(ModelSchema):
     @staticmethod
     def resolve_logo(obj):
         return obj.logo.url if obj.logo else None
+    
+    @staticmethod
+    def resolve_pays(obj):
+        return obj.pays.code if obj.pays else None
+    
+    @staticmethod
+    def resolve_pays_nom(obj):
+        return obj.pays.name if obj.pays else None
+    
+    @staticmethod
+    def resolve_secteur_activite(obj):
+        return {
+            "id": obj.secteur_activite.id,
+            "nom": obj.secteur_activite.nom,
+            "code": obj.secteur_activite.code
+        }
 
 
-class OrganisationCompleteSchema(ModelSchema):
+class OrganisationCompleteOut(OrganisationOut):
     """Schéma complet avec statistiques"""
     logo: Optional[str] = None
     membres_count: Optional[int] = 0
     abonnes_count: Optional[int] = 0
-
-    class Meta:
-        model = Organisation
-        fields = [
-            'id', 'nom_organisation', 'type_organisation', 'secteur_activite',
-            'adresse', 'ville', 'pays', 'email_general', 'telephone_general',
-            'description', 'date_creation', 'statut', 'slug',
-            'created_at', 'updated_at'
-        ]
 
     @staticmethod
     def resolve_logo(obj):
@@ -58,11 +69,11 @@ class OrganisationCompleteSchema(ModelSchema):
         return getattr(obj, 'abonnes_count', 0)
 
 
-class OrganisationCreateSchema(Schema):
+class OrganisationCreate(Schema):
     """Schéma pour création d'organisation"""
     nom_organisation: str
     type_organisation: str
-    secteur_activite: Optional[str] = None
+    secteur_activite: Optional[UUID4] = None
     adresse: Optional[str] = None
     ville: Optional[str] = None
     pays: Optional[str] = None
@@ -72,11 +83,11 @@ class OrganisationCreateSchema(Schema):
     date_creation: Optional[date] = None
 
 
-class OrganisationUpdateSchema(Schema):
+class OrganisationUpdate(Schema):
     """Schéma pour mise à jour d'organisation"""
     nom_organisation: Optional[str] = None
     type_organisation: Optional[str] = None
-    secteur_activite: Optional[str] = None
+    secteur_activite: Optional[UUID4] = None
     adresse: Optional[str] = None
     ville: Optional[str] = None
     pays: Optional[str] = None
@@ -87,12 +98,12 @@ class OrganisationUpdateSchema(Schema):
     slug: Optional[str] = None
 
 
-class OrganisationStatusUpdateSchema(Schema):
+class OrganisationStatusUpdate(Schema):
     """Schéma pour mise à jour du statut"""
     statut: str
 
 
-class OrganisationFilterSchema(Schema):
+class OrganisationFilter(Schema):
     """Schéma pour filtres de recherche d'organisations"""
     search: Optional[str] = None
     pays: Optional[str] = None
@@ -101,20 +112,20 @@ class OrganisationFilterSchema(Schema):
     ville: Optional[str] = None
 
 
-class OrganisationListResponseSchema(Schema):
+class OrganisationListResponse(Schema):
     """Réponse paginée pour liste d'organisations"""
-    items: List[OrganisationCompleteSchema]
+    items: List[OrganisationCompleteOut]
     meta: PaginationMetaSchema
 
 
-class OrganisationStatsSchema(Schema):
+class OrganisationStats(Schema):
     """Schéma pour statistiques d'une organisation"""
     membres_count: int
     admins_count: int
     followers_count: int
 
 
-class OrganisationGlobalStatsSchema(Schema):
+class OrganisationGlobalStats(Schema):
     """Schéma pour statistiques globales"""
     total_organisations: int
     active_organisations: int
@@ -129,41 +140,64 @@ class OrganisationGlobalStatsSchema(Schema):
 # SCHÉMAS MEMBRES
 # ==========================================
 
-class MembreOrganisationOutSchema(ModelSchema):
+class MembreOrganisationOut(ModelSchema):
     """Schéma de sortie pour un membre"""
-    profil: ProfilBaseOut
+    poste: Optional[PosteSimple] = None
+    profil_nom: str
+    organisation_nom: str
 
     class Meta:
         model = MembreOrganisation
         fields = [
-            'id', 'role_organisation', 'poste', 'est_actif',
+            'id', 'role_organisation', 'est_actif',
             'date_joindre', 'created_at'
         ]
 
+    @staticmethod
+    def resolve_poste(obj):
+        """Retourne l'objet Poste complet"""
+        if obj.poste:
+            return {
+                "id": obj.poste.id,
+                "titre": obj.poste.titre,
+                "categorie": obj.poste.categorie,
+                "niveau": obj.poste.niveau
+            }
+        return None
+    
+    @staticmethod
+    def resolve_profil_nom(obj):
+        return obj.profil.nom_complet
+    
+    @staticmethod
+    def resolve_organisation_nom(obj):
+        return obj.organisation.nom_organisation
 
-class MembreOrganisationCreateSchema(Schema):
+
+
+class MembreOrganisationCreate(Schema):
     """Schéma pour ajout d'un membre"""
     profil_id: UUID4
     role_organisation: str
-    poste: Optional[str] = None
+    poste: Optional[UUID4] = None
 
 
-class MembreOrganisationUpdateSchema(Schema):
+class MembreOrganisationUpdate(Schema):
     """Schéma pour mise à jour d'un membre"""
     role_organisation: Optional[str] = None
-    poste: Optional[str] = None
+    poste: Optional[UUID4] = None
     est_actif: Optional[bool] = None
 
 
-class MembreFilterSchema(Schema):
+class MembreFilter(Schema):
     """Schéma pour filtres de recherche de membres"""
     search: Optional[str] = None
     role_organisation: Optional[str] = None
 
 
-class MembreListResponseSchema(Schema):
+class MembreListResponse(Schema):
     """Réponse paginée pour liste de membres"""
-    items: List[MembreOrganisationOutSchema]
+    items: List[MembreOrganisationOut]
     meta: PaginationMetaSchema
 
 
@@ -171,31 +205,31 @@ class MembreListResponseSchema(Schema):
 # SCHÉMAS ABONNEMENTS
 # ==========================================
 
-class AbonnementOrganisationOutSchema(ModelSchema):
+class AbonnementOrganisationOut(ModelSchema):
     """Schéma de sortie pour un abonnement"""
     profil: ProfilBaseOut
-    organisation: OrganisationOutSchema
+    organisation: OrganisationOut
     
     class Meta:
         model = AbonnementOrganisation
         fields = ['id', 'date_abonnement']
 
 
-class FollowerSchema(Schema):
+class Follower(Schema):
     """Schéma simplifié pour un abonné"""
     profil: ProfilBaseOut
     date_abonnement: datetime
 
 
-class FollowerListResponseSchema(Schema):
+class FollowerListResponse(Schema):
     """Réponse paginée pour liste d'abonnés"""
     items: List[ProfilBaseOut]
     meta: PaginationMetaSchema
 
 
-class FollowingListResponseSchema(Schema):
+class FollowingListResponse(Schema):
     """Réponse paginée pour liste d'organisations suivies"""
-    items: List[OrganisationCompleteSchema]
+    items: List[OrganisationCompleteOut]
     meta: PaginationMetaSchema
 
 
@@ -203,7 +237,7 @@ class FollowingListResponseSchema(Schema):
 # SCHÉMAS LOGO
 # ==========================================
 
-class LogoUploadResponseSchema(Schema):
+class LogoUploadResponse(Schema):
     """Réponse après upload de logo"""
     message: str = "Logo de l'organisation mis à jour avec succès"
     logo_url: Optional[str] = None
@@ -213,17 +247,13 @@ class LogoUploadResponseSchema(Schema):
 # SCHÉMAS MESSAGES
 # ==========================================
 
-class MessageSchema(Schema):
-    """Schéma pour messages simples"""
-    detail: str
 
-
-class FollowResponseSchema(Schema):
+class FollowResponse(Schema):
     """Réponse après abonnement"""
     message: str
-    organisation: OrganisationOutSchema
+    organisation: OrganisationOut
 
 
-class UnfollowResponseSchema(Schema):
+class UnfollowResponse(Schema):
     """Réponse après désabonnement"""
     message: str = "Vous ne suivez plus cette organisation"

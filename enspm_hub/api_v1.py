@@ -7,6 +7,7 @@ from django.conf import settings
 import logging
 
 from core.api.auth import auth_router
+from core.api.references import references_router
 from users.api.views import users_router
 from organizations.api.views import organisations_router
 from opportunities.api.views import (
@@ -46,6 +47,7 @@ def root(request: HttpRequest):
     }
 
 # Inclusion des routers
+api_v1.add_router("/references/", references_router)
 api_v1.add_router("/auth/", auth_router)
 api_v1.add_router("/users/", users_router)
 api_v1.add_router("/organisations/", organisations_router)

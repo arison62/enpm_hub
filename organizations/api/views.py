@@ -1,6 +1,5 @@
 # organizations/api/views.py
 import logging
-from typing import List
 from ninja import Router, Query, File, UploadedFile
 from django.http import HttpRequest
 from pydantic import UUID4
@@ -11,25 +10,25 @@ from organizations.services.organisation_service import organisation_service
 from organizations.services.abonnement_service import abonnement_service
 from organizations.services.membre_service import membre_service
 from organizations.api.schemas import (
-    OrganisationCreateSchema,
-    OrganisationUpdateSchema,
-    OrganisationCompleteSchema,
-    OrganisationListResponseSchema,
-    OrganisationFilterSchema,
-    OrganisationStatusUpdateSchema,
-    OrganisationStatsSchema,
-    OrganisationGlobalStatsSchema,
-    MembreOrganisationCreateSchema,
-    MembreOrganisationUpdateSchema,
-    MembreListResponseSchema,
-    MembreFilterSchema,
-    FollowerListResponseSchema,
-    FollowingListResponseSchema,
-    MessageSchema,
-    LogoUploadResponseSchema,
-    FollowResponseSchema,
-    UnfollowResponseSchema
+    OrganisationCreate,
+    OrganisationUpdate,
+    OrganisationCompleteOut,
+    OrganisationListResponse,
+    OrganisationFilter,
+    OrganisationStatusUpdate,
+    OrganisationStats,
+    OrganisationGlobalStats,
+    MembreOrganisationCreate,
+    MembreOrganisationUpdate,
+    MembreListResponse,
+    MembreFilter,
+    FollowerListResponse,
+    FollowingListResponse,
+    LogoUploadResponse,
+    FollowResponse,
+    UnfollowResponse
 )
+from core.api.schemas import MessageResponse
 from core.api.exceptions import (
     NotFoundAPIException,
     PermissionDeniedAPIException,
@@ -47,13 +46,13 @@ organisations_router = Router(tags=["Organisations"])
 
 @organisations_router.post(
     "/",
-    response={201: OrganisationCompleteSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema},
+    response={201: OrganisationCompleteOut, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse},
     auth=jwt_auth,
     summary="Crée une nouvelle organisation"
 )
 def create_organisation_endpoint(
     request: HttpRequest,
-    payload: OrganisationCreateSchema
+    payload: OrganisationCreate
 ):
     """
     Crée une nouvelle organisation.
@@ -78,13 +77,13 @@ def create_organisation_endpoint(
 
 @organisations_router.get(
     "/",
-    response={200: OrganisationListResponseSchema, 401: MessageSchema},
+    response={200: OrganisationListResponse, 401: MessageResponse},
     auth=jwt_auth,
     summary="Liste toutes les organisations actives"
 )
 def list_organisations_endpoint(
     request: HttpRequest,
-    filters: Query[OrganisationFilterSchema],
+    filters: Query[OrganisationFilter],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100)
 ):
@@ -110,7 +109,7 @@ def list_organisations_endpoint(
 
 @organisations_router.get(
     "/pending",
-    response={200: OrganisationListResponseSchema, 401: MessageSchema, 403: MessageSchema},
+    response={200: OrganisationListResponse, 401: MessageResponse, 403: MessageResponse},
     auth=jwt_auth,
     summary="Liste les organisations en attente"
 )
@@ -137,7 +136,7 @@ def list_pending_organisations_endpoint(
 
 @organisations_router.get(
     "/statistics",
-    response={200: OrganisationGlobalStatsSchema, 401: MessageSchema, 403: MessageSchema},
+    response={200: OrganisationGlobalStats, 401: MessageResponse, 403: MessageResponse},
     auth=jwt_auth,
     summary="Statistiques globales des organisations"
 )
@@ -156,7 +155,7 @@ def get_global_statistics_endpoint(request: HttpRequest):
 
 @organisations_router.get(
     "/slug/{slug}",
-    response={200: OrganisationCompleteSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationCompleteOut, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Récupère une organisation par son slug"
 )
@@ -175,7 +174,7 @@ def get_organisation_by_slug_endpoint(request: HttpRequest, slug: str):
 
 @organisations_router.get(
     "/{org_id}",
-    response={200: OrganisationCompleteSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationCompleteOut, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Récupère une organisation par son ID"
 )
@@ -190,7 +189,7 @@ def get_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.get(
     "/{org_id}/stats",
-    response={200: OrganisationStatsSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationStats, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Statistiques d'une organisation"
 )
@@ -205,14 +204,14 @@ def get_organisation_stats_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.put(
     "/{org_id}",
-    response={200: OrganisationCompleteSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationCompleteOut, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Met à jour une organisation"
 )
 def update_organisation_endpoint(
     request: HttpRequest,
     org_id: UUID4,
-    payload: OrganisationUpdateSchema
+    payload: OrganisationUpdate
 ):
     """
     Met à jour les informations d'une organisation.
@@ -237,14 +236,14 @@ def update_organisation_endpoint(
 
 @organisations_router.patch(
     "/{org_id}/status",
-    response={200: OrganisationCompleteSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationCompleteOut, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Change le statut d'une organisation"
 )
 def update_organisation_status_endpoint(
     request: HttpRequest,
     org_id: UUID4,
-    payload: OrganisationStatusUpdateSchema
+    payload: OrganisationStatusUpdate
 ):
     """
     Change le statut d'une organisation.
@@ -269,7 +268,7 @@ def update_organisation_status_endpoint(
 
 @organisations_router.delete(
     "/{org_id}",
-    response={204: None, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={204: None, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Supprime une organisation"
 )
@@ -294,7 +293,7 @@ def delete_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.post(
     "/{org_id}/restore",
-    response={200: OrganisationCompleteSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: OrganisationCompleteOut, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Restaure une organisation supprimée"
 )
@@ -323,7 +322,7 @@ def restore_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.post(
     "/{org_id}/logo",
-    response={200: LogoUploadResponseSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: LogoUploadResponse, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Upload le logo de l'organisation"
 )
@@ -360,7 +359,7 @@ def upload_logo_endpoint(
 
 @organisations_router.delete(
     "/{org_id}/logo",
-    response={204: None, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={204: None, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Supprime le logo de l'organisation"
 )
@@ -385,14 +384,14 @@ def delete_logo_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.get(
     "/{org_id}/membres",
-    response={200: MembreListResponseSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: MembreListResponse, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Liste les membres d'une organisation"
 )
 def list_membres_endpoint(
     request: HttpRequest,
     org_id: UUID4,
-    filters: Query[MembreFilterSchema],
+    filters: Query[MembreFilter],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100)
 ):
@@ -411,14 +410,14 @@ def list_membres_endpoint(
 
 @organisations_router.post(
     "/{org_id}/membres",
-    response={201: MessageSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={201: MessageResponse, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Ajoute un membre à l'organisation"
 )
 def add_membre_endpoint(
     request: HttpRequest,
     org_id: UUID4,
-    payload: MembreOrganisationCreateSchema
+    payload: MembreOrganisationCreate
 ):
     """
     Ajoute un nouveau membre à l'organisation.
@@ -443,7 +442,7 @@ def add_membre_endpoint(
 
 @organisations_router.put(
     "/{org_id}/membres/{profil_id}",
-    response={200: MessageSchema, 400: MessageSchema, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={200: MessageResponse, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Met à jour un membre"
 )
@@ -451,7 +450,7 @@ def update_membre_endpoint(
     request: HttpRequest,
     org_id: UUID4,
     profil_id: UUID4,
-    payload: MembreOrganisationUpdateSchema
+    payload: MembreOrganisationUpdate
 ):
     """
     Met à jour les informations d'un membre.
@@ -475,7 +474,7 @@ def update_membre_endpoint(
 
 @organisations_router.delete(
     "/{org_id}/membres/{profil_id}",
-    response={204: None, 401: MessageSchema, 403: MessageSchema, 404: MessageSchema},
+    response={204: None, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Retire un membre de l'organisation"
 )
@@ -509,7 +508,7 @@ def remove_membre_endpoint(
 
 @organisations_router.post(
     "/{org_id}/follow",
-    response={201: FollowResponseSchema, 400: MessageSchema, 401: MessageSchema, 404: MessageSchema},
+    response={201: FollowResponse, 400: MessageResponse, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Suivre une organisation"
 )
@@ -533,7 +532,7 @@ def follow_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.delete(
     "/{org_id}/follow",
-    response={200: UnfollowResponseSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: UnfollowResponse, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Ne plus suivre une organisation"
 )
@@ -554,7 +553,7 @@ def unfollow_organisation_endpoint(request: HttpRequest, org_id: UUID4):
 
 @organisations_router.get(
     "/{org_id}/followers",
-    response={200: FollowerListResponseSchema, 401: MessageSchema, 404: MessageSchema},
+    response={200: FollowerListResponse, 401: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,
     summary="Liste les abonnés d'une organisation"
 )
@@ -578,7 +577,7 @@ def list_followers_endpoint(
 
 @organisations_router.get(
     "/me/following",
-    response={200: FollowingListResponseSchema, 401: MessageSchema},
+    response={200: FollowingListResponse, 401: MessageResponse},
     auth=jwt_auth,
     summary="Liste les organisations suivies"
 )

@@ -4,8 +4,11 @@ from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date
 from decimal import Decimal
+
+from pydantic import UUID4
+from core.api.schemas import DeviseSimple
 from users.api.schemas import ProfilBaseOut, PaginationMetaSchema
-from organizations.api.schemas import OrganisationOutSchema
+from organizations.api.schemas import OrganisationOut
 from opportunities.models import Stage, Emploi, Formation
 
 
@@ -13,11 +16,13 @@ from opportunities.models import Stage, Emploi, Formation
 # SCHÉMAS STAGE
 # ==========================================
 
-class StageOutSchema(ModelSchema):
+class StageOut(ModelSchema):
     """Schéma de sortie pour un stage"""
     createur_profil: Optional[ProfilBaseOut] = None
-    organisation: Optional[OrganisationOutSchema] = None
+    organisation: Optional[OrganisationOut] = None
     validateur_profil: Optional[ProfilBaseOut] = None
+    pays: Optional[str]
+    pays_nom: Optional[str]
 
 
     class Meta:
@@ -32,9 +37,14 @@ class StageOutSchema(ModelSchema):
 
     @staticmethod
     def resolve_pays(obj):
-        return obj.pays.name
+        return obj.pays.code if obj.pays else None
+    
+    @staticmethod
+    def resolve_pays_nom(obj):
+        return obj.pays.name if obj.pays else None
+    
 
-class StageCreateSchema(Schema):
+class StageCreate(Schema):
     """Schéma pour création d'un stage"""
     titre: str
     nom_structure: str
@@ -51,7 +61,7 @@ class StageCreateSchema(Schema):
     date_fin: Optional[date] = None
 
 
-class StageUpdateSchema(Schema):
+class StageUpdate(Schema):
     """Schéma pour mise à jour d'un stage"""
     titre: Optional[str] = None
     nom_structure: Optional[str] = None
@@ -69,7 +79,7 @@ class StageUpdateSchema(Schema):
     slug: Optional[str] = None
 
 
-class StageFilterSchema(Schema):
+class StageFilter(Schema):
     """Filtres pour recherche de stages"""
     search: Optional[str] = None
     type_stage: Optional[str] = None
@@ -79,24 +89,24 @@ class StageFilterSchema(Schema):
     statut: Optional[str] = None
 
 
-class StageListResponseSchema(Schema):
+class StageListResponse(Schema):
     """Réponse paginée pour liste de stages"""
-    items: List[StageOutSchema]
+    items: List[StageOut]
     meta: PaginationMetaSchema
 
 
-class StageValidationSchema(Schema):
+class StageValidation(Schema):
     """Schéma pour validation d'un stage"""
     approved: bool
     commentaire: Optional[str] = None
 
 
-class StageStatusUpdateSchema(Schema):
+class StageStatusUpdate(Schema):
     """Schéma pour mise à jour du statut"""
     statut: str
 
 
-class StageStatsSchema(Schema):
+class StageStats(Schema):
     """Statistiques des stages"""
     total_stages: int
     active_stages: int
@@ -110,11 +120,14 @@ class StageStatsSchema(Schema):
 # SCHÉMAS EMPLOI
 # ==========================================
 
-class EmploiOutSchema(ModelSchema):
+class EmploiOut(ModelSchema):
     """Schéma de sortie pour un emploi"""
     createur_profil: Optional[ProfilBaseOut] = None
-    organisation: Optional[OrganisationOutSchema] = None
+    organisation: Optional[OrganisationOut] = None
     validateur_profil: Optional[ProfilBaseOut] = None
+    pays: Optional[str]
+    pays_nom: Optional[str]
+    devise: Optional[DeviseSimple]
 
     class Meta:
         model = Emploi
@@ -129,9 +142,21 @@ class EmploiOutSchema(ModelSchema):
 
     @staticmethod
     def resolve_pays(obj):
-        return obj.pays.name
+        return obj.pays.code if obj.pays else None
+    
+    @staticmethod
+    def resolve_pays_nom(obj):
+        return obj.pays.name if obj.pays else None
+    
+    @staticmethod
+    def resolve_devise(obj):
+        return {
+            'code': obj.devise.code,
+            'nom': obj.devise.nom,
+            'symbole': obj.devise.symbole
+        }
 
-class EmploiCreateSchema(Schema):
+class EmploiCreate(Schema):
     """Schéma pour création d'un emploi"""
     titre: str
     nom_structure: str
@@ -150,7 +175,7 @@ class EmploiCreateSchema(Schema):
     devise: Optional[str] = 'XAF'
 
 
-class EmploiUpdateSchema(Schema):
+class EmploiUpdate(Schema):
     """Schéma pour mise à jour d'un emploi"""
     titre: Optional[str] = None
     nom_structure: Optional[str] = None
@@ -170,7 +195,7 @@ class EmploiUpdateSchema(Schema):
     slug: Optional[str] = None
 
 
-class EmploiFilterSchema(Schema):
+class EmploiFilter(Schema):
     """Filtres pour recherche d'emplois"""
     search: Optional[str] = None
     type_emploi: Optional[str] = None
@@ -180,24 +205,24 @@ class EmploiFilterSchema(Schema):
     statut: Optional[str] = None
 
 
-class EmploiListResponseSchema(Schema):
+class EmploiListResponse(Schema):
     """Réponse paginée pour liste d'emplois"""
-    items: List[EmploiOutSchema]
+    items: List[EmploiOut]
     meta: PaginationMetaSchema
 
 
-class EmploiValidationSchema(Schema):
+class EmploiValidation(Schema):
     """Schéma pour validation d'un emploi"""
     approved: bool
     commentaire: Optional[str] = None
 
 
-class EmploiStatusUpdateSchema(Schema):
+class EmploiStatusUpdate(Schema):
     """Schéma pour mise à jour du statut"""
     statut: str
 
 
-class EmploiStatsSchema(Schema):
+class EmploiStats(Schema):
     """Statistiques des emplois"""
     total_emplois: int
     active_emplois: int
@@ -209,11 +234,14 @@ class EmploiStatsSchema(Schema):
 # SCHÉMAS FORMATION
 # ==========================================
 
-class FormationOutSchema(ModelSchema):
+class FormationOut(ModelSchema):
     """Schéma de sortie pour une formation"""
     createur_profil: Optional[ProfilBaseOut] = None
-    organisation: Optional[OrganisationOutSchema] = None
+    organisation: Optional[OrganisationOut] = None
     validateur_profil: Optional[ProfilBaseOut] = None
+    pays: Optional[str]
+    pays_nom: Optional[str]
+    devise: Optional[DeviseSimple]
 
     class Meta:
         model = Formation
@@ -228,9 +256,21 @@ class FormationOutSchema(ModelSchema):
 
     @staticmethod
     def resolve_pays(obj):
-        return obj.pays.name
-
-class FormationCreateSchema(Schema):
+        return obj.pays.code if obj.pays else None
+    
+    @staticmethod
+    def resolve_pays_nom(obj):
+        return obj.pays.name if obj.pays else None
+    
+    @staticmethod
+    def resolve_devise(obj):
+        return {
+            'code': obj.devise.code,
+            'nom': obj.devise.nom,
+            'symbole': obj.devise.symbole
+        }
+        
+class FormationCreate(Schema):
     """Schéma pour création d'une formation"""
     titre: str
     nom_structure: str
@@ -247,11 +287,11 @@ class FormationCreateSchema(Schema):
     date_fin: Optional[date] = None
     est_payante: bool = False
     prix: Optional[Decimal] = None
-    devise: Optional[str] = 'XAF'
+    devise: Optional[UUID4]
     duree_heures: Optional[int] = None
 
 
-class FormationUpdateSchema(Schema):
+class FormationUpdate(Schema):
     """Schéma pour mise à jour d'une formation"""
     titre: Optional[str] = None
     nom_structure: Optional[str] = None
@@ -268,12 +308,12 @@ class FormationUpdateSchema(Schema):
     date_fin: Optional[date] = None
     est_payante: Optional[bool] = None
     prix: Optional[Decimal] = None
-    devise: Optional[str] = None
+    devise: Optional[UUID4] = None
     duree_heures: Optional[int] = None
     slug: Optional[str] = None
 
 
-class FormationFilterSchema(Schema):
+class FormationFilter(Schema):
     """Filtres pour recherche de formations"""
     search: Optional[str] = None
     type_formation: Optional[str] = None
@@ -283,24 +323,24 @@ class FormationFilterSchema(Schema):
     statut: Optional[str] = None
 
 
-class FormationListResponseSchema(Schema):
+class FormationListResponse(Schema):
     """Réponse paginée pour liste de formations"""
-    items: List[FormationOutSchema]
+    items: List[FormationOut]
     meta: PaginationMetaSchema
 
 
-class FormationValidationSchema(Schema):
+class FormationValidation(Schema):
     """Schéma pour validation d'une formation"""
     approved: bool
     commentaire: Optional[str] = None
 
 
-class FormationStatusUpdateSchema(Schema):
+class FormationStatusUpdate(Schema):
     """Schéma pour mise à jour du statut"""
     statut: str
 
 
-class FormationStatsSchema(Schema):
+class FormationStats(Schema):
     """Statistiques des formations"""
     total_formations: int
     active_formations: int
@@ -309,11 +349,3 @@ class FormationStatsSchema(Schema):
     gratuites: int
     payantes: int
 
-
-# ==========================================
-# SCHÉMAS COMMUNS
-# ==========================================
-
-class MessageSchema(Schema):
-    """Schéma pour messages simples"""
-    detail: str

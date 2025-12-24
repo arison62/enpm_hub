@@ -1,8 +1,14 @@
 # core/api/schemas.py
 from ninja import Field, ModelSchema, Schema
-from typing import Optional
+from typing import Optional, List
 from pydantic import EmailStr, field_validator
-from core.models import AnneePromotion, ReseauSocial, User, AuditLog
+from uuid import UUID
+from datetime import datetime
+from core.models import (
+    User, AuditLog,
+    AnneePromotion, Domaine, Filiere, SecteurActivite,
+    Poste, Devise, TitreHonorifique, ReseauSocial
+)
 
 
 # ==========================================
@@ -39,25 +45,6 @@ class PaginationMetaSchema(Schema):
     page_size: int
     total_items: int
     total_pages: int
-
-# ==========================================
-# SCHÉMAS POUR AnneePromotion
-# ==========================================
-
-class AnneePromotionOut(ModelSchema):
-    class Meta:
-        model = AnneePromotion
-        fields = ['id', 'annee', 'libelle', 'description', 'est_active', 'ordre_affichage', 'created_at', 'updated_at']
-
-# ==========================================
-# SCHÉMAS POUR ReseauSocial
-# ==========================================
-
-class ReseauSocialOut(ModelSchema):
-    class Meta:
-        model = ReseauSocial
-        fields = ['id', 'nom', 'url_base', 'type_reseau', 'pattern_validation', 'placeholder_exemple', 'est_actif', 'ordre_affichage', 'created_at', 'updated_at']
-
 
 # ==========================================
 # SCHÉMAS POUR User
@@ -98,3 +85,250 @@ class AuditLogOut(ModelSchema):
         model = AuditLog
         fields = ['id', 'user', 'action', 'entity_type', 'entity_id', 'old_values', 'new_values', 'ip_address', 'user_agent', 'created_at', 'updated_at']
         # AuditLog is typically read-only, no create/update schemas needed for API exposure
+
+
+# ==========================================
+# SCHÉMAS DE BASE (Sans relations)
+# ==========================================
+
+class AnneePromotionOut(ModelSchema):
+    """Schéma de sortie pour AnneePromotion"""
+    class Meta:
+        model = AnneePromotion
+        fields = ['id', 'annee', 'libelle', 'description', 'est_active', 'ordre_affichage']
+
+
+class DomaineOut(ModelSchema):
+    """Schéma de sortie pour Domaine"""
+    class Meta:
+        model = Domaine
+        fields = ['id', 'nom', 'code', 'description', 'categorie', 'est_actif', 'ordre_affichage']
+
+
+class FiliereOut(ModelSchema):
+    """Schéma de sortie pour Filiere (sans domaine complet)"""
+    domaine_id: UUID
+    domaine_nom: str
+    domaine_code: str
+    
+    class Meta:
+        model = Filiere
+        fields = ['id', 'nom', 'code', 'description', 'niveau', 'duree_annees', 'est_actif', 'ordre_affichage']
+    
+    @staticmethod
+    def resolve_domaine_id(obj):
+        return obj.domaine.id
+    
+    @staticmethod
+    def resolve_domaine_nom(obj):
+        return obj.domaine.nom
+    
+    @staticmethod
+    def resolve_domaine_code(obj):
+        return obj.domaine.code
+
+
+class SecteurActiviteOut(ModelSchema):
+    """Schéma de sortie pour SecteurActivite"""
+    parent_id: Optional[UUID] = None
+    parent_nom: Optional[str] = None
+    nom_complet: str
+    
+    class Meta:
+        model = SecteurActivite
+        fields = ['id', 'nom', 'code', 'description', 'icone', 'est_actif', 'ordre_affichage']
+    
+    @staticmethod
+    def resolve_parent_id(obj):
+        return obj.categorie_parent.id if obj.categorie_parent else None
+    
+    @staticmethod
+    def resolve_parent_nom(obj):
+        return obj.categorie_parent.nom if obj.categorie_parent else None
+    
+    @staticmethod
+    def resolve_nom_complet(obj):
+        return obj.nom_complet
+
+
+class PosteOut(ModelSchema):
+    """Schéma de sortie pour Poste"""
+    secteur_id: Optional[UUID] = None
+    secteur_nom: Optional[str] = None
+    
+    class Meta:
+        model = Poste
+        fields = ['id', 'titre', 'categorie', 'niveau', 'synonymes', 'description', 'est_actif', 'ordre_affichage']
+    
+    @staticmethod
+    def resolve_secteur_id(obj):
+        return obj.secteur.id if obj.secteur else None
+    
+    @staticmethod
+    def resolve_secteur_nom(obj):
+        return obj.secteur.nom if obj.secteur else None
+
+
+class DeviseOut(ModelSchema):
+    """Schéma de sortie pour Devise"""
+    class Meta:
+        model = Devise
+        fields = ['id', 'code', 'nom', 'symbole', 'taux_change_usd', 'date_mise_a_jour_taux', 'est_active', 'ordre_affichage']
+
+
+class TitreHonorifiqueOut(ModelSchema):
+    """Schéma de sortie pour TitreHonorifique"""
+    class Meta:
+        model = TitreHonorifique
+        fields = ['id', 'titre', 'nom_complet', 'type_titre', 'description', 'est_actif', 'ordre_affichage']
+
+
+class ReseauSocialOut(ModelSchema):
+    """Schéma de sortie pour ReseauSocial"""
+    class Meta:
+        model = ReseauSocial
+        fields = [
+            'id', 'nom', 'code', 'url_base', 'type_reseau',
+            'pattern_validation', 'placeholder_exemple', 'est_actif', 'ordre_affichage'
+        ]
+
+
+# ==========================================
+# SCHÉMAS SIMPLIFIÉS (Pour intégration dans d'autres schémas)
+# ==========================================
+
+class AnneePromotionSimple(Schema):
+    """Version simplifiée pour intégration dans ProfilOut"""
+    id: UUID
+    annee: int
+    libelle: str
+
+
+class DomaineSimple(Schema):
+    """Version simplifiée pour intégration dans ProfilOut"""
+    id: UUID
+    nom: str
+    code: str
+
+
+class FiliereSimple(Schema):
+    """Version simplifiée"""
+    id: UUID
+    nom: str
+    code: str
+    niveau: str
+
+
+class SecteurActiviteSimple(Schema):
+    """Version simplifiée pour intégration dans OrganisationOut"""
+    id: UUID
+    nom: str
+    code: str
+
+
+class PosteSimple(Schema):
+    """Version simplifiée pour intégration dans MembreOrganisationOut"""
+    id: UUID
+    titre: str
+    categorie: str
+    niveau: Optional[str] = None
+
+
+class DeviseSimple(Schema):
+    """Version simplifiée pour intégration dans EmploiOut/FormationOut"""
+    id: UUID
+    code: str
+    symbole: str
+
+
+class TitreHonorifiqueSimple(Schema):
+    """Version simplifiée pour intégration dans ProfilOut"""
+    id: UUID
+    titre: str
+    nom_complet: str
+
+
+class ReseauSocialSimple(Schema):
+    """Version simplifiée pour intégration dans LienReseauSocialOut"""
+    id: UUID
+    nom: str
+    code: str
+    url_base: str
+
+
+# ==========================================
+# SCHÉMAS COMPLETS (Avec relations)
+# ==========================================
+
+class DomaineComplete(ModelSchema):
+    """Domaine avec ses filières"""
+    filieres: List[FiliereOut]
+    
+    class Meta:
+        model = Domaine
+        fields = ['id', 'nom', 'code', 'description', 'categorie', 'est_actif']
+    
+    @staticmethod
+    def resolve_filieres(obj):
+        return list(obj.filieres.filter(est_actif=True).order_by('ordre_affichage'))
+
+
+class SecteurActiviteComplete(ModelSchema):
+    """Secteur avec ses sous-secteurs"""
+    sous_secteurs: List[SecteurActiviteOut]
+    
+    class Meta:
+        model = SecteurActivite
+        fields = ['id', 'nom', 'code', 'description', 'est_actif']
+    
+    @staticmethod
+    def resolve_sous_secteurs(obj):
+        return list(obj.sous_secteurs.filter(est_actif=True).order_by('ordre_affichage'))
+
+
+# ==========================================
+# SCHÉMAS DE RÉPONSE GROUPÉS
+# ==========================================
+
+class ReferencesAcademiquesOut(Schema):
+    """Toutes les références académiques en un seul appel"""
+    annees_promotion: List[AnneePromotionOut]
+    domaines: List[DomaineOut]
+    titres: List[TitreHonorifiqueOut]
+
+
+class ReferencesProfessionnellesOut(Schema):
+    """Toutes les références professionnelles en un seul appel"""
+    secteurs: List[SecteurActiviteOut]
+    postes: List[PosteOut]
+
+
+class ReferencesFinancieresOut(Schema):
+    """Toutes les références financières"""
+    devises: List[DeviseOut]
+
+
+class ReferencesReseauxOut(Schema):
+    """Tous les réseaux sociaux"""
+    reseaux: List[ReseauSocialOut]
+
+
+class AllReferencesOut(Schema):
+    """TOUTES les références en un seul appel"""
+    annees_promotion: List[AnneePromotionOut]
+    domaines: List[DomaineOut]
+    filieres: List[FiliereOut]
+    secteurs: List[SecteurActiviteOut]
+    postes: List[PosteOut]
+    devises: List[DeviseOut]
+    titres: List[TitreHonorifiqueOut]
+    reseaux: List[ReseauSocialOut]
+
+
+# ==========================================
+# MESSAGE DE RÉPONSE STANDARD
+# ==========================================
+
+class MessageResponse(Schema):
+    """Schéma de réponse standard pour messages"""
+    detail: str
