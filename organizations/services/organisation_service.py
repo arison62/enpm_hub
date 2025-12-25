@@ -4,7 +4,7 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from uuid import UUID
 from django.db import transaction
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Q, Count, Prefetch, Value, OuterRef, Exists, BooleanField
 from django.shortcuts import get_object_or_404
 from django.core.files.uploadedfile import UploadedFile
 from django.core.files.storage import default_storage
@@ -20,6 +20,7 @@ from core.api.exceptions import (
     NotFoundAPIException, 
     BadRequestAPIException
 )
+from users.services.user_service import user_service
 
 logger = logging.getLogger('app')
 
@@ -113,7 +114,26 @@ class OrganisationService:
         return new_organisation
 
     @staticmethod
+    @transaction.atomic
+    def create_organisation_with_members(acting_user: User, data: Dict, request=None) -> Organisation:
+        members = data.pop('membres', None)
+        new_organisation = OrganisationService.create_organisation(acting_user, data, request)
+        if members:
+            for member_data in members:
+                role_organisation = member_data.pop("role_organisation", "employe")
+                user = user_service.create_user(acting_user, member_data, request)
+                MembreOrganisation.objects.create(
+                    profil=user.profil, # type: ignore
+                    organisation=new_organisation,
+                    role_organisation = role_organisation,
+                    est_actif=True
+                )
+        return new_organisation
+    
+    
+    @staticmethod
     def list_organisations(
+        acting_user: User,
         filters: Optional[Dict] = None,
         page: int = 1,
         page_size: int = 20,
@@ -123,30 +143,55 @@ class OrganisationService:
         Liste les organisations actives avec filtres et pagination.
         
         Args:
-            filters: Dictionnaire de filtres (search, pays, secteur_activite, type_organisation)
+            acting_user: Utilisateur connecté (pour vérifier s'il suit les organisations)
+            filters: Dictionnaire de filtres (search, pays, secteur_activite, type_organisation, ville)
             page: Numéro de page
             page_size: Nombre d'éléments par page
             include_stats: Si True, inclut le nombre de membres et d'abonnés
-        
+            
         Returns:
             Tuple (liste_organisations, total_count)
         """
         queryset = Organisation.objects.filter(statut='active', deleted=False)
         
+        # Annotation pour est_suivi (si l'utilisateur connecté suit l'organisation)
+        if acting_user and acting_user.is_authenticated:
+            # Vérifier si l'utilisateur a un profil
+            try:
+                profil = acting_user.profil
+                queryset = queryset.annotate(
+                    est_suivi=Exists(
+                        AbonnementOrganisation.objects.filter(
+                            organisation=OuterRef('pk'),
+                            profil=profil
+                        )
+                    )
+                )
+            except AttributeError:
+                # L'utilisateur n'a pas de profil
+                queryset = queryset.annotate(
+                    est_suivi=Value(False, output_field=BooleanField())
+                )
+        else:
+            # Utilisateur non authentifié
+            queryset = queryset.annotate(
+                est_suivi=Value(False, output_field=BooleanField())
+            )
+        
         # Annotations pour les statistiques
         if include_stats:
             queryset = queryset.annotate(
-                membres_count=Count('membres', filter=Q(membres__est_actif=True)),
-                abonnes_count=Count('abonnes')
+                nombre_membres=Count('membres', filter=Q(membres__est_actif=True)),
+                nombre_abonnes=Count('abonnes'),
             )
-        
+            queryset = queryset.order_by('-nombre_abonnes', '-nombre_membres')
         # Application des filtres
         if filters:
             if search := filters.get('search'):
                 queryset = queryset.filter(
                     Q(nom_organisation__icontains=search) |
                     Q(description__icontains=search) |
-                    Q(secteur_activite__icontains=search) |
+                    Q(secteur_activite__nom__icontains=search) |
                     Q(ville__icontains=search)
                 )
             
@@ -154,7 +199,7 @@ class OrganisationService:
                 queryset = queryset.filter(pays__iexact=pays)
             
             if secteur := filters.get('secteur_activite'):
-                queryset = queryset.filter(secteur_activite__icontains=secteur)
+                queryset = queryset.filter(secteur_activite__id=secteur)
             
             if type_org := filters.get('type_organisation'):
                 queryset = queryset.filter(type_organisation=type_org)
@@ -162,12 +207,14 @@ class OrganisationService:
             if ville := filters.get('ville'):
                 queryset = queryset.filter(ville__icontains=ville)
         
+        # Sélection des relations pour optimiser les requêtes
+        queryset = queryset.select_related('secteur_activite')
+        
         total_count = queryset.count()
         
         # Pagination
         start = (page - 1) * page_size
         end = start + page_size
-        
         organisations = list(queryset.order_by('nom_organisation')[start:end])
         
         return organisations, total_count

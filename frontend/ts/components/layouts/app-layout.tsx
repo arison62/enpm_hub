@@ -1,6 +1,6 @@
 // frontend/ts/components/layouts/app-layout.tsx
-import { type ReactNode, useRef } from "react";
-import { Link } from "@inertiajs/react";
+import { type ReactNode, useEffect, useRef } from "react";
+import { Link, router } from "@inertiajs/react";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
@@ -9,7 +9,7 @@ import {
   MessageSquare,
   Menu,
   GraduationCap,
-  Users2
+  Users2,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,8 +64,14 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuthStore();
+  const isAuthenticated = user !== null;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.visit("/login");
+    }
+  }, [isAuthenticated]);
 
   useGSAP(() => {
     gsap.from(containerRef.current, {
@@ -75,9 +81,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
       ease: "power2.out",
     });
   }, []);
-
-
-
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -99,7 +102,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           {/* Desktop Actions */}
           <GlobalSearch />
-          <DesktopNavLinks items={NAVIGATION_ITEMS} className="hidden lg:flex" />
+          <DesktopNavLinks
+            items={NAVIGATION_ITEMS}
+            className="hidden lg:flex"
+          />
 
           {/* User Menu */}
           <div className="flex items-center gap-3">

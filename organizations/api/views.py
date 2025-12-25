@@ -26,6 +26,7 @@ from organizations.api.schemas import (
     FollowingListResponse,
     LogoUploadResponse,
     FollowResponse,
+    OrgansisationCreateWithMembers,
     UnfollowResponse
 )
 from core.api.schemas import MessageResponse
@@ -74,6 +75,35 @@ def create_organisation_endpoint(
         logger.exception("Erreur création organisation")
         return 400, {"detail": "Erreur lors de la création"}
 
+@organisations_router.post(
+    "/with-members/",
+    response={201: OrganisationCompleteOut, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse},
+    auth=jwt_auth
+)
+def create_organisation_with_members_endpoint(
+    request: HttpRequest,
+    payload: OrgansisationCreateWithMembers
+):
+    """
+    Creer une organisation avec les utilisateurs membres complet
+    - Creer l'organisation
+    - Creer les utilisateur User et Profil
+    - Ajouter les membres
+    """
+    try:
+        new_org = organisation_service.create_organisation_with_members(
+            acting_user=request.auth,
+            data=payload.dict(),
+            request=request
+        )
+        return 201, new_org
+    except BadRequestAPIException as e:
+        return 400, {"detail": str(e)}
+    except Exception as e:
+        logger.exception("Erreur création organisation")
+        return 400, {"detail": "Erreur lors de la création"}
+
+
 
 @organisations_router.get(
     "/",
@@ -98,6 +128,7 @@ def list_organisations_endpoint(
     - ville : Filtrer par ville
     """
     orgs_list, total_count = organisation_service.list_organisations(
+        acting_user=request.auth,
         filters=filters.dict(exclude_unset=True),
         page=page,
         page_size=page_size,

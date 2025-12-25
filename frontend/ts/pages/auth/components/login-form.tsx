@@ -23,6 +23,7 @@ import { EyeClosed, Eye, LockIcon, MailIcon } from "lucide-react";
 import { apiClient, type ApiErrorResponse } from "@/lib/axios";
 import { useAuthStore } from "@/stores/authStore";
 import { Spinner } from "@/components/ui/spinner";
+import { router } from "@inertiajs/react";
 import Axios from "axios";
 
 gsap.registerPlugin(useGSAP); // Register the hook
@@ -64,6 +65,7 @@ const LoginForm = () => {
         formRef.current?.reset();
         const response = await apiClient.get("auth/me");
         setUser(response.data);
+        router.visit("/home/");
       } catch (error) {
         if (Axios.isAxiosError<ApiErrorResponse>(error)) {
           const message =

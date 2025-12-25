@@ -1,11 +1,13 @@
+
+
 # organizations/api/schemas.py
 from ninja.schema import Schema
 from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date, datetime
-from pydantic import UUID4
+from pydantic import UUID4, EmailStr
 from core.api.schemas import PosteSimple, SecteurActiviteSimple
-from users.api.schemas import ProfilBaseOut, PaginationMetaSchema
+from users.api.schemas import ProfilBaseOut, PaginationMetaSchema, ProfilCreate
 from organizations.models import Organisation, MembreOrganisation, AbonnementOrganisation
 
 
@@ -25,7 +27,7 @@ class OrganisationOut(ModelSchema):
         fields = [
             'id', 'nom_organisation', 'type_organisation', 'secteur_activite',
             'adresse', 'ville', 'pays', 'email_general', 'telephone_general',
-            'description', 'date_creation', 'statut', 'slug',
+            'description', 'date_creation', 'statut', 'slug', 'logo',
             'created_at', 'updated_at'
         ]
 
@@ -53,8 +55,9 @@ class OrganisationOut(ModelSchema):
 class OrganisationCompleteOut(OrganisationOut):
     """Schéma complet avec statistiques"""
     logo: Optional[str] = None
-    membres_count: Optional[int] = 0
-    abonnes_count: Optional[int] = 0
+    nombre_membres: Optional[int] = 0
+    nombre_abonnes: Optional[int] = 0
+    est_suivi: Optional[bool] = False
 
     @staticmethod
     def resolve_logo(obj):
@@ -73,7 +76,7 @@ class OrganisationCreate(Schema):
     """Schéma pour création d'organisation"""
     nom_organisation: str
     type_organisation: str
-    secteur_activite: Optional[UUID4] = None
+    secteur_activite_id: Optional[UUID4] = None
     adresse: Optional[str] = None
     ville: Optional[str] = None
     pays: Optional[str] = None
@@ -82,6 +85,17 @@ class OrganisationCreate(Schema):
     description: Optional[str] = None
     date_creation: Optional[date] = None
 
+
+class MembersOrganisationCreate(Schema):
+    """Schéma pour ajout de membres"""
+    email: EmailStr
+    role_systeme: str = 'user'
+    role_organisation: str = "employe"
+    profil: ProfilCreate
+    
+
+class OrgansisationCreateWithMembers(OrganisationCreate):
+    membres : List[MembersOrganisationCreate]
 
 class OrganisationUpdate(Schema):
     """Schéma pour mise à jour d'organisation"""

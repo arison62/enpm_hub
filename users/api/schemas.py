@@ -95,15 +95,15 @@ class ProfilCreate(Schema):
     """Schéma pour création Profil (champs requis/minimaux)"""
     nom_complet: str = Field(..., description="Nom complet")
     matricule: Optional[str] = None
-    titre: Optional[UUID4] = None  # FK vers TitreHonorifique
+    titre_id: Optional[UUID4] = None  # FK vers TitreHonorifique
     statut_global: str = 'etudiant'
     travailleur: bool = False
-    annee_sortie: Optional[UUID4] = None  # FK vers AnneePromotion
-    adresse: Optional[str] = Field(..., description="Adresse", max_length=255)
-    telephone: Optional[str] = Field(..., description="N° de tél.", max_length=20)
-    ville: Optional[str] = Field(..., description="Ville", max_length=100)
+    annee_sortie_id: Optional[UUID4] = None  # FK vers AnneePromotion
+    adresse: Optional[str] = Field(None, description="Adresse", max_length=255)
+    telephone: Optional[str] = Field(None, description="N° de tél.", max_length=20)
+    ville: Optional[str] = Field(None, description="Ville", max_length=100)
     pays: Optional[str] = None  # Code pays ISO
-    domaine: Optional[UUID4] = None  # FK vers Domaine
+    domaine_id: Optional[UUID4] = None  # FK vers Domaine
     bio: Optional[str] = None
 
     @field_validator('statut_global')
