@@ -21,6 +21,21 @@ class ReferenceService:
     # Durées de cache (en secondes)
     CACHE_TIMEOUT = 60 * 60 * 24  # 24 heures
     
+    # =========================================
+    # Pays
+    # =========================================
+    @staticmethod
+    def get_all_pays():
+        """Récupère tous les pays"""
+        from django_countries import countries
+        
+        cached_data = cache.get("countries")
+        if cached_data:
+            return cached_data
+        list_countries = [{"code": code, "name": name} for code, name in countries]
+        cache.set("countries", list_countries, ReferenceService.CACHE_TIMEOUT)
+        return list_countries
+    
     # ==========================================
     # ANNÉES DE PROMOTION
     # ==========================================
@@ -303,6 +318,7 @@ class ReferenceService:
             'devises_actives', 'devises_all',
             'titres_actifs', 'titres_all',
             'reseaux_actifs', 'reseaux_all',
+            
         ]
         
         for key in cache_keys:

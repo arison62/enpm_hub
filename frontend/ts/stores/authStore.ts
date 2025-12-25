@@ -1,19 +1,19 @@
 // frontend/ts/stores/authStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { type User } from "@/types/user";
+import { type UserComplete } from "@/types/user";
 
 interface AuthState {
-  user: User | null;
+  user: UserComplete | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
 
   // Actions
-  setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: UserComplete, accessToken: string, refreshToken: string) => void;
   logout: () => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
-  setUser: (user: User) => void;
+  setUser: (user: UserComplete) => void;
 }
 
 export const authStore = create<AuthState>()(

@@ -1,6 +1,6 @@
 // src/Pages/Profile/Edit.tsx
-import { useRef, useState } from "react";
-import { Head, Link, router, usePage } from "@inertiajs/react";
+import { useRef, useState, useEffect } from "react";
+import { usePage } from "@inertiajs/react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 
@@ -24,77 +24,63 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Plus, ExternalLink, Edit2 } from "lucide-react";
+import {
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 import { toast } from "sonner";
+import type { UserComplete } from "@/types/user";
+import axios from "@/lib/axios";
+import type { PaysOut, ReferencesAcademiquesOut } from "@/types/base";
+import { useAuthStore } from "@/stores/authStore";
+import Axios from "axios";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
 
-interface LienReseau {
-  id?: string;
-  nom_reseau: string;
-  url: string;
-  est_actif?: boolean;
-}
-
-interface ProfilData {
-  nom_complet: string;
-  matricule?: string;
-  titre?: string;
-  statut_global?: string;
-  travailleur?: boolean;
-  annee_sortie?: number;
-  telephone?: string;
-  domaine?: string;
-  bio?: string;
-  adresse?: string;
-  photo_profil?: string;
-  liens_reseaux?: LienReseau[];
-}
-
-interface UserProps {
-  id: string;
-  email: string;
-  role_systeme: "user" | "admin_site" | "super_admin";
-  est_actif: boolean;
-  last_login: string;
-  created_at: string;
-  updated_at: string;
-  profil: ProfilData;
-}
-
 export default function ProfileEdit() {
-  // Props from Inertia (user data pre-filled)
-  const { user } = usePage().props as { user: UserProps };
+  const { user } = usePage().props as unknown as { user: UserComplete };
+  const setUser = useAuthStore((state) => state.setUser);
   const profil = user.profil;
 
-  // States for each section (independent editing)
   const [basicInfo, setBasicInfo] = useState({
-    nom_complet: profil.nom_complet,
-    titre: profil.titre || "",
-    bio: profil.bio || "",
+    nom_complet: profil.nom_complet || "",
+    titre_id: profil.titre?.id || null,
+    bio: profil.bio || null,
   });
 
   const [educationInfo, setEducationInfo] = useState({
-    statut_global: profil.statut_global || "",
-    annee_sortie: profil.annee_sortie || 0,
-    domaine: profil.domaine || "",
+    annee_sortie_id: profil.annee_sortie?.id || null,
+    domaine_id: profil.domaine?.id || null,
   });
 
   const [contactInfo, setContactInfo] = useState({
-    telephone: profil.telephone || "",
-    adresse: profil.adresse || "",
+    pays: profil.pays || null,
+    ville: profil.ville || null,
+    adresse: profil.adresse || null,
+    telephone: profil.telephone || null,
   });
 
   const [professionalInfo, setProfessionalInfo] = useState({
     travailleur: profil.travailleur || false,
-    // Add poste if available in schema
   });
-
-  const [socialLinks, setSocialLinks] = useState<LienReseau[]>(
-    profil.liens_reseaux || []
+  const [references, setReferences] = useState<ReferencesAcademiquesOut | null>(
+    null
   );
-  const [newLink, setNewLink] = useState({ nom_reseau: "", url: "" });
-  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [countries, setCountries] = useState<PaysOut[]>([]);
 
   const [photo, setPhoto] = useState(profil.photo_profil);
   const [isLoading, setIsLoading] = useState({
@@ -104,6 +90,8 @@ export default function ProfileEdit() {
     professional: false,
     links: false,
     photo: false,
+    references: false,
+    pays: false,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,47 +105,66 @@ export default function ProfileEdit() {
       ease: "power2.out",
     });
   }, []);
-
+  useEffect(() => {
+    async function getReferencesAcademique() {
+      setIsLoading((prev) => ({ ...prev, references: true }));
+      try {
+        const response = await axios.get("/references/academiques");
+        if (response.status === 200) {
+          const data = response.data as ReferencesAcademiquesOut;
+          setReferences(data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading((prev) => ({ ...prev, references: false }));
+      }
+    }
+    async function getAllCountries() {
+      setIsLoading((prev) => ({ ...prev, countries: true }));
+      try {
+        const response = await axios.get("/references/pays");
+        if (response.status === 200) {
+          const data = response.data as PaysOut[];
+          setCountries(data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading((prev) => ({ ...prev, countries: false }));
+      }
+    }
+    getAllCountries();
+    getReferencesAcademique();
+  }, []);
   // Helper to submit section
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submitSection = async (section: string, data: any) => {
     setIsLoading((prev) => ({ ...prev, [section]: true }));
-    router.patch(`/api/v1/users/${user.id}/profil`, data, {
-      onSuccess: () => {
-        toast(`Section ${section} mise à jour.`);
-      },
-      onError: (errors) => {
-        toast("Échec de la mise à jour.");
-      },
-      onFinish: () => {
-        setIsLoading((prev) => ({ ...prev, [section]: false }));
-      },
-    });
-  };
+    try {
+      console.log(data);
+      const response = await axios.put(`/users/${user.id}`, {
+        profil: data,
+      });
 
-  // Add or Edit Social Link
-  const handleAddOrEditLink = () => {
-    if (!newLink.nom_reseau || !newLink.url) return;
+      if (response.status === 200) {
+        setUser(response.data);
+        toast.success("Mise à jour effectuée avec succès");
+      }
+    } catch (error) {
+      if (Axios.isAxiosError(error)) {
+        toast.error(
+          error.response?.data?.detail ||
+            "Une erreur s'est produite lors de la mise à jour."
+        );
+      } else if (error instanceof Error) {
+        toast.error("Une erreur s'est produite lors de la mise à jour.");
+      }
 
-    let updatedLinks;
-    if (editingLinkId) {
-      updatedLinks = socialLinks.map((link) =>
-        link.id === editingLinkId ? { ...link, ...newLink } : link
-      );
-    } else {
-      updatedLinks = [...socialLinks, { ...newLink }];
+      console.error(error);
+    } finally {
+      setIsLoading((prev) => ({ ...prev, [section]: false }));
     }
-
-    setSocialLinks(updatedLinks);
-    submitSection("links", { liens_reseaux: updatedLinks });
-    setNewLink({ nom_reseau: "", url: "" });
-    setEditingLinkId(null);
-  };
-
-  // Remove Social Link
-  const handleRemoveLink = (id: string) => {
-    const updatedLinks = socialLinks.filter((link) => link.id !== id);
-    setSocialLinks(updatedLinks);
-    submitSection("links", { liens_reseaux: updatedLinks });
   };
 
   // Photo Upload (assuming endpoint POST /api/v1/users/{id}/photo)
@@ -166,21 +173,27 @@ export default function ProfileEdit() {
     if (!file) return;
 
     const formData = new FormData();
-    formData.append("photo_profil", file);
+    formData.append("file", file);
 
     setIsLoading((prev) => ({ ...prev, photo: true }));
-    router.post(`/api/v1/users/${user.id}/photo`, formData, {
-      onSuccess: (page) => {
-        setPhoto(page.props.user.profil.photo_profil); // Update from response
-        toast("Photo mise à jour.");
-      },
-      onError: () => {
-        toast("Échec du téléchargement.");
-      },
-      onFinish: () => {
+
+    axios
+      .post(`/users/${user.id}/photo`, formData)
+      .then((response) => {
+        if (response.status === 200) {
+          setPhoto(response.data.photo_profil);
+          toast.success("Photo de profil mise à jour avec succès");
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error(
+          "Une erreur s'est produite lors de la mise à jour de la photo de profil."
+        );
+      })
+      .finally(() => {
         setIsLoading((prev) => ({ ...prev, photo: false }));
-      },
-    });
+      });
   };
 
   return (
@@ -197,7 +210,7 @@ export default function ProfileEdit() {
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4">
               <Avatar className="size-32">
-                <AvatarImage src={photo} alt="Photo de profil" />
+                <AvatarImage src={photo || undefined} alt="Photo de profil" />
                 <AvatarFallback>{profil.nom_complet[0]}</AvatarFallback>
               </Avatar>
               <Label htmlFor="photo-upload">
@@ -238,19 +251,30 @@ export default function ProfileEdit() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="titre">Titre</Label>
-                <Input
-                  id="titre"
-                  value={basicInfo.titre}
-                  onChange={(e) =>
-                    setBasicInfo({ ...basicInfo, titre: e.target.value })
+
+                <Select
+                  onValueChange={(e) =>
+                    setBasicInfo({ ...basicInfo, titre_id: e })
                   }
-                />
+                  defaultValue={basicInfo.titre_id || ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ajouter un titre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {references?.titres?.map((titre) => (
+                      <SelectItem key={titre.id} value={titre.id}>
+                        {titre.titre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
-                  value={basicInfo.bio}
+                  value={basicInfo.bio || undefined}
                   onChange={(e) =>
                     setBasicInfo({ ...basicInfo, bio: e.target.value })
                   }
@@ -271,74 +295,72 @@ export default function ProfileEdit() {
           {/* Accordion pour sections secondaires */}
           <Accordion type="single" collapsible className="space-y-4">
             {/* Éducation */}
-            <AccordionItem value="education">
-              <AccordionTrigger>Éducation & Statut</AccordionTrigger>
-              <AccordionContent className="space-y-6 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="statut_global">Statut Global</Label>
-                  <Select
-                    value={educationInfo.statut_global}
-                    onValueChange={(value) =>
-                      setEducationInfo({
-                        ...educationInfo,
-                        statut_global: value,
-                      })
-                    }
+            {user.profil.statut_global == "alumni" && (
+              <AccordionItem value="education">
+                <AccordionTrigger>Éducation</AccordionTrigger>
+                <AccordionContent className="space-y-6 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="annee_sortie">Promotion</Label>
+
+                    <Select
+                      onValueChange={(e) =>
+                        setEducationInfo({
+                          ...educationInfo,
+                          annee_sortie_id: e,
+                        })
+                      }
+                      defaultValue={educationInfo.annee_sortie_id || ""}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Votre promotion" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {references?.annees_promotion?.map((annee_sortie) => (
+                          <SelectItem
+                            key={annee_sortie.id}
+                            value={annee_sortie.id}
+                          >
+                            {annee_sortie.annee}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="domaine">Domaine</Label>
+
+                    <Select
+                      onValueChange={(e) =>
+                        setEducationInfo({
+                          ...educationInfo,
+                          domaine_id: e,
+                        })
+                      }
+                      defaultValue={educationInfo.domaine_id || ""}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Votre domaine" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {references?.domaines?.map((domaine) => (
+                          <SelectItem key={domaine.id} value={domaine.id}>
+                            {domaine.nom}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={() => submitSection("education", educationInfo)}
+                    disabled={isLoading.education}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez votre statut" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="etudiant">Étudiant</SelectItem>
-                      <SelectItem value="alumni">Alumni</SelectItem>
-                      <SelectItem value="enseignant">Enseignant</SelectItem>
-                      <SelectItem value="personnel_admin">
-                        Personnel Admin
-                      </SelectItem>
-                      <SelectItem value="personnel_technique">
-                        Personnel Technique
-                      </SelectItem>
-                      <SelectItem value="partenaire">Partenaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="annee_sortie">Année de Sortie</Label>
-                  <Input
-                    id="annee_sortie"
-                    type="number"
-                    value={educationInfo.annee_sortie}
-                    onChange={(e) =>
-                      setEducationInfo({
-                        ...educationInfo,
-                        annee_sortie: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="domaine">Domaine</Label>
-                  <Input
-                    id="domaine"
-                    value={educationInfo.domaine}
-                    onChange={(e) =>
-                      setEducationInfo({
-                        ...educationInfo,
-                        domaine: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <Button
-                  onClick={() => submitSection("education", educationInfo)}
-                  disabled={isLoading.education}
-                >
-                  {isLoading.education
-                    ? "Enregistrement..."
-                    : "Enregistrer l'éducation"}
-                </Button>
-              </AccordionContent>
-            </AccordionItem>
+                    {isLoading.education
+                      ? "Enregistrement..."
+                      : "Enregistrer l'éducation"}
+                  </Button>
+                </AccordionContent>
+              </AccordionItem>
+            )}
 
             {/* Contact */}
             <AccordionItem value="contact">
@@ -348,7 +370,7 @@ export default function ProfileEdit() {
                   <Label htmlFor="telephone">Téléphone</Label>
                   <Input
                     id="telephone"
-                    value={contactInfo.telephone}
+                    value={contactInfo.telephone || undefined}
                     onChange={(e) =>
                       setContactInfo({
                         ...contactInfo,
@@ -358,10 +380,74 @@ export default function ProfileEdit() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="adresse">Adresse</Label>
+                  <Label htmlFor="pays">Pays</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-[200px] justify-between"
+                      >
+                        {contactInfo.pays
+                          ? countries.find(
+                              (pays) => pays.code === contactInfo.pays
+                            )?.name
+                          : "Veuillez choisir un pays"}
+                        <ChevronsUpDown className="opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Rechercher un pays..." />
+                        <CommandList>
+                          <CommandEmpty>Aucun pays trouvé</CommandEmpty>
+                          <CommandGroup>
+                            {countries.map((pays) => (
+                              <CommandItem
+                                key={pays.code}
+                                value={pays.name}
+                                onSelect={() => {
+                                  setContactInfo({
+                                    ...contactInfo,
+                                    pays: pays.code,
+                                  });
+                                }}
+                              >
+                                {pays.name}
+                                <Check
+                                  className={cn(
+                                    "ml-auto",
+                                    contactInfo.pays == pays.code
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ville">Ville</Label>
+                  <Input
+                    id="ville"
+                    value={contactInfo.ville || undefined}
+                    onChange={(e) =>
+                      setContactInfo({
+                        ...contactInfo,
+                        ville: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="adresse">Adresse Complet</Label>
                   <Input
                     id="adresse"
-                    value={contactInfo.adresse}
+                    value={contactInfo.adresse || undefined}
                     onChange={(e) =>
                       setContactInfo({
                         ...contactInfo,
@@ -370,6 +456,7 @@ export default function ProfileEdit() {
                     }
                   />
                 </div>
+
                 <Button
                   onClick={() => submitSection("contact", contactInfo)}
                   disabled={isLoading.contact}
@@ -408,78 +495,6 @@ export default function ProfileEdit() {
                     ? "Enregistrement..."
                     : "Enregistrer le statut pro"}
                 </Button>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Liens Réseaux */}
-            <AccordionItem value="social">
-              <AccordionTrigger>Réseaux Sociaux</AccordionTrigger>
-              <AccordionContent className="space-y-6 pt-4">
-                {/* Liste des liens existants */}
-                {socialLinks.map((link) => (
-                  <div
-                    key={link.id || link.url}
-                    className="flex items-center gap-2"
-                  >
-                    <Input
-                      value={link.nom_reseau}
-                      className="flex-1"
-                      disabled
-                    />
-                    <Input value={link.url} className="flex-1" disabled />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setNewLink({
-                          nom_reseau: link.nom_reseau,
-                          url: link.url,
-                        });
-                        setEditingLinkId(link.id!);
-                      }}
-                    >
-                      <Edit2 className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveLink(link.id!)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                ))}
-
-                {/* Formulaire d'ajout/édition */}
-                <div className="space-y-2">
-                  <Label>Ajouter/Modifier un Lien</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Nom du réseau (ex. LinkedIn)"
-                      value={newLink.nom_reseau}
-                      onChange={(e) =>
-                        setNewLink({ ...newLink, nom_reseau: e.target.value })
-                      }
-                    />
-                    <Input
-                      placeholder="URL"
-                      value={newLink.url}
-                      onChange={(e) =>
-                        setNewLink({ ...newLink, url: e.target.value })
-                      }
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAddOrEditLink}
-                    disabled={isLoading.links}
-                  >
-                    {isLoading.links
-                      ? "Enregistrement..."
-                      : editingLinkId
-                      ? "Modifier"
-                      : "Ajouter"}
-                  </Button>
-                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>

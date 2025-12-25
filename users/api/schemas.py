@@ -114,11 +114,14 @@ class ProfilCreate(Schema):
 
 class ProfilUpdate(ModelSchema):
     """Schéma pour mise à jour partielle Profil"""
+    titre_id: Optional[str] = None  # FK vers TitreHonorifique
+    annee_sortie_id: Optional[str] = None  # FK vers AnneePromotion
+    domaine_id:Optional[str] = None
     class Meta:
         model = Profil
         fields = [
-            'nom_complet', 'matricule', 'titre', 'statut_global', 'travailleur',
-            'annee_sortie', 'adresse', 'telephone', 'ville', 'pays', 'domaine', 'bio'
+            'nom_complet', 'matricule', 'statut_global', 'travailleur',
+             'adresse', 'telephone', 'ville', 'pays', 'bio'
         ]
         fields_optional = '__all__'
 
@@ -208,14 +211,14 @@ class UserCreateAdmin(Schema):
 
 class UserUpdate(ModelSchema):
     """Schéma mise à jour User (self ou admin)"""
+    profil: Optional[ProfilUpdate] = None
     class Meta:
         model = User
         fields = ['email', 'role_systeme', 'est_actif']
         fields_optional = '__all__'
 
-class UserUpdateAdmin(UserUpdate):
-    """Schéma mise à jour User par admin (inclut profil)"""
-    profil: Optional[ProfilUpdate] = None
+
+    
 
 # ==========================================
 # SCHÉMAS MOT DE PASSE

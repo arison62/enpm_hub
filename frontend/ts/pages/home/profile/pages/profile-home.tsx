@@ -1,10 +1,10 @@
 import { Deferred, usePage } from "@inertiajs/react";
 import { ProfileContent } from "../components/profile-content";
-import type { UserProps } from "../types";
 import { ProfileSkeleton } from "../components/profile-skeleton";
+import type { UserComplete } from "@/types/user";
 
 interface PageProps {
-  user: UserProps;
+  user: UserComplete
 }
 
 export default function ProfileHome() {

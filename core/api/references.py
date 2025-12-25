@@ -10,7 +10,7 @@ from django.http import HttpRequest
 from pydantic import UUID4
 
 from .schemas import (
-    AnneePromotionOut, DomaineOut, DomaineComplete, FiliereOut,
+    AnneePromotionOut, CountrieOut, DomaineOut, DomaineComplete, FiliereOut,
     SecteurActiviteOut, SecteurActiviteComplete, PosteOut,
     DeviseOut, TitreHonorifiqueOut, ReseauSocialOut,
     ReferencesAcademiquesOut, ReferencesProfessionnellesOut,
@@ -285,9 +285,18 @@ def get_references_reseaux(request: HttpRequest):
     """
     Récupère tous les réseaux sociaux.
     """
-    return 200, {
-        "reseaux": reference_service.get_all_reseaux(actifs_only=True),
-    }
+    return 200, reference_service.get_all_reseaux(actifs_only=True),
+    
+
+@references_router.get(
+    "/pays",
+    response={200: List[CountrieOut]},
+    summary="Tous les pays",
+    description="Récupère tous les pays"
+)
+def get_references_countries(request: HttpRequest):
+    return 200, reference_service.get_all_pays(),
+    
 
 
 @references_router.get(

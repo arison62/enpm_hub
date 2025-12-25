@@ -124,6 +124,7 @@ class UserService:
         logger.info(f"Utilisateur (ID: {user_to_update.id}) mis à jour par {acting_user.email}. Slug: {user_to_update.profil.slug}") # type: ignore
 
         # 3. Journalisation complète dans l'AuditTrail
+        
         audit_log_service.log_action(
             user=acting_user,
             action=AuditLog.AuditAction.UPDATE,
@@ -133,7 +134,6 @@ class UserService:
             old_values=old_values,
             new_values=new_values_log
         )
-        
         return user_to_update
 
     @staticmethod

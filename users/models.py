@@ -10,7 +10,6 @@ class Profil(ENSPMHubBaseModel):
         ('alumni', 'Alumni'),
         ('enseignant', 'Enseignant'),
         ('personnel_admin', 'Personnel Administratif'),
-        ('personnel_technique', 'Personnel Technique'),
         ('partenaire', 'Partenaire'),
     ]
     user = models.OneToOneField("core.User", on_delete=models.CASCADE, related_name='profil')

@@ -4,14 +4,14 @@ import { useGSAP } from "@gsap/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileHeader } from "./profile-header";
 import { ProfileSidebar } from "./profile-sidebar";
-import { type UserProps } from "../types";
 import { useAuthStore } from "@/stores/authStore";
-import { useInternalNav } from "@/contexts/internal-nav-context";
+import type { UserComplete } from "@/types/user";
 
-export const ProfileContent = ({ user }: { user: UserProps }) => {
+export const ProfileContent = ({ user }: { user: UserComplete }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isOwner = useAuthStore((state) => state.user?.id == user.id);
   const profil = user.profil;
+  
 
   useGSAP(
     () => {

@@ -2,15 +2,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit, Briefcase, MapPin } from "lucide-react";
-import { type UserProps } from "../types";
+
 import { useInternalNav } from "@/contexts/internal-nav-context";
 import ProfileEdit from "../pages/profile-edit";
+import type { UserComplete } from "@/types/user";
 
 export const ProfileHeader = ({
   profil,
   isOwner = false,
 }: {
-  profil: UserProps["profil"];
+  profil: UserComplete["profil"];
   isOwner: boolean;
 }) => {
   const { push } = useInternalNav();
@@ -29,7 +30,7 @@ export const ProfileHeader = ({
         <div className="container mx-auto px-4">
           <div className="relative -mt-16 md:-mt-20 flex flex-col md:flex-row items-center lg:items-end gap-6 animate-fade">
             <Avatar className="size-32 md:size-44 border-4 border-background shadow-xl">
-              <AvatarImage src={profil.photo_profil} alt={profil.nom_complet} />
+              <AvatarImage src={profil.photo_profil || ""} alt={profil.nom_complet} />
               <AvatarFallback className="text-3xl">
                 {profil.nom_complet?.[0]}
               </AvatarFallback>
@@ -39,7 +40,7 @@ export const ProfileHeader = ({
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                 <h1 className="text-2xl md:text-4xl font-extrabold text-foreground">
                   {profil.titre && (
-                    <span className="text-primary">{profil.titre} </span>
+                    <span className="text-primary">{profil.titre.titre} </span>
                   )}
                   {profil.nom_complet}
                 </h1>
@@ -51,12 +52,13 @@ export const ProfileHeader = ({
               <div className="flex flex-wrap justify-center md:justify-start gap-x-4 gap-y-1 mt-2 text-muted-foreground text-sm md:text-base">
                 {profil.domaine && (
                   <span className="flex items-center gap-1">
-                    <Briefcase className="size-4" /> {profil.domaine}
+                    <Briefcase className="size-4" /> {profil.domaine.nom}
                   </span>
                 )}
-                {profil.adresse && (
+                {profil.pays_nom && (
                   <span className="flex items-center gap-1">
-                    <MapPin className="size-4" /> {profil.adresse}
+                    <MapPin className="size-4" /> {profil.pays_nom}
+                    {profil.ville && `, ${profil.ville}`}
                   </span>
                 )}
               </div>

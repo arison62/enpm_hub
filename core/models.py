@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
+from core.utils.encoder import CountriesEncoder
 
 from django.apps import apps
 
@@ -356,7 +357,8 @@ class Poste(ENSPMHubBaseModel):
         default=list,
         blank=True,
         verbose_name=_("Synonymes"),
-        help_text=_("Liste des variantes: ['Dev', 'Développeur', 'Software Engineer']")
+        help_text=_("Liste des variantes: ['Dev', 'Développeur', 'Software Engineer']"),
+        encoder=CountriesEncoder
     )
     description = models.TextField(
         null=True,
@@ -659,12 +661,14 @@ class AuditLog(ENSPMHubBaseModel):
     old_values = models.JSONField(
         null=True,
         blank=True,
-        verbose_name=_('Anciennes valeurs')
+        verbose_name=_('Anciennes valeurs'),
+        encoder=CountriesEncoder
     )
     new_values = models.JSONField(
         null=True,
         blank=True,
-        verbose_name=_('Nouvelles valeurs')
+        verbose_name=_('Nouvelles valeurs'),
+        encoder=CountriesEncoder
     )
 
     # Informations de connexion

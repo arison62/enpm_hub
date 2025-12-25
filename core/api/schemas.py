@@ -312,6 +312,9 @@ class ReferencesReseauxOut(Schema):
     """Tous les réseaux sociaux"""
     reseaux: List[ReseauSocialOut]
 
+class CountrieOut(Schema):
+    name: str
+    code: str
 
 class AllReferencesOut(Schema):
     """TOUTES les références en un seul appel"""
@@ -323,6 +326,7 @@ class AllReferencesOut(Schema):
     devises: List[DeviseOut]
     titres: List[TitreHonorifiqueOut]
     reseaux: List[ReseauSocialOut]
+    pays: List[CountrieOut]
 
 
 # ==========================================

@@ -4,30 +4,25 @@ from ninja import Router, Query, File, UploadedFile
 from django.http import HttpRequest
 from pydantic import UUID4
 from core.models import User
-from users.api.schemas import ChangePassword, LienReseauSocialCreate, LienReseauSocialOut, LienReseauSocialUpdate, MessageResponse, PasswordResponse, PhotoUploadResponse, ResetPassword, ToggleStatus, UserCompleteOut, UserCreateAdmin, UserFilter, UserListResponse, UserStatistics, UserUpdateAdmin, ValidationErrorResponse
+from users.api.schemas import (
+    ChangePassword, 
+    LienReseauSocialCreate, 
+    LienReseauSocialOut, 
+    LienReseauSocialUpdate, 
+    MessageResponse, 
+    PasswordResponse, 
+    PhotoUploadResponse, 
+    ResetPassword, 
+    ToggleStatus, 
+    UserCompleteOut, 
+    UserCreateAdmin, 
+    UserFilter, 
+    UserListResponse, 
+    UserStatistics, 
+    UserUpdate, 
+    ValidationErrorResponse)
 from users.models import LienReseauSocialProfil
 from users.services.user_service import user_service
-# from users.api.schemas import (
-#     UserCreateAdminSchema,
-#     UserListResponseSchema,
-#     UserUpdateAdminSchema,
-#     UserDetailSchema,
-#     UserCompleteSchema,
-#     UserFilterSchema,
-#     PhotoUploadResponseSchema,
-#     MessageSchema,
-#     ValidationErrorSchema,
-#     LienReseauSocialSchema,
-#     LienReseauSocialCreateSchema,
-#     LienReseauSocialUpdateSchema,
-#     ChangePasswordSchema,
-#     ResetPasswordSchema,
-#     PasswordResponseSchema,
-#     ToggleStatusSchema,
-#     UserStatisticsSchema,
-#     SlugUpdateSchema,
-
-# )
 from core.utils.pagination import build_pagination_response
 from core.services.auth_service import jwt_auth
 
@@ -148,7 +143,6 @@ def get_user_by_slug_endpoint(request: HttpRequest, slug: str):
     user = user_service.get_user_by_slug(slug)
     if not user:
         return 404, {"detail": f"Aucun utilisateur trouvé avec le slug '{slug}'."}
-    
     return 200, user
 
 @users_router.get(
@@ -166,7 +160,6 @@ def get_user_endpoint(request: HttpRequest, user_id: UUID4):
     user = user_service.get_user_by_id(str(user_id), include_relations=True)
     if not user:
         return 404, {"detail": "Utilisateur introuvable."}
-    
     return 200, user
 
 @users_router.put(
@@ -176,7 +169,7 @@ def get_user_endpoint(request: HttpRequest, user_id: UUID4):
     summary="Met à jour un utilisateur",
     description="Mise à jour des informations utilisateur et profil"
 )
-def update_user_endpoint(request: HttpRequest, user_id: UUID4, payload: UserUpdateAdmin):
+def update_user_endpoint(request: HttpRequest, user_id: UUID4, payload: UserUpdate):
     """
     Met à jour les informations d'un utilisateur.
     
@@ -195,7 +188,7 @@ def update_user_endpoint(request: HttpRequest, user_id: UUID4, payload: UserUpda
     payload_dict = payload.dict(exclude_unset=True)
     if 'role_systeme' in payload_dict and not is_admin(request):
         return 403, {"detail": "Seuls les administrateurs peuvent modifier le rôle système."}
-
+    print("data", payload_dict)
     try:
         updated_user = user_service.update_user(
             acting_user=request.auth, # type: ignore

@@ -1,3 +1,12 @@
+import type {
+  UUID,
+  DateTimeString,
+  ReseauSocialOut,
+  DomaineOut,
+  TitreHonorifiqueOut,
+  AnneePromotionOut,
+} from "./base";
+
 export type Profil = {
   id: string;
   nom_complet: string;
@@ -25,3 +34,157 @@ export type User = {
   updated_at: string;
   profil: Profil;
 };
+
+export type RoleSysteme = "user" | "admin_site" | "super_admin";
+
+export type StatutGlobal =
+  | "etudiant"
+  | "alumni"
+  | "enseignant"
+  | "personnel_admin"
+  | "partenaire";
+
+// ============================================================================
+// UTILISATEURS
+// ============================================================================
+
+export interface ProfilOut {
+  id: UUID;
+  nom_complet: string;
+  matricule: string | null;
+  titre: TitreHonorifiqueOut | null;
+  statut_global: StatutGlobal;
+  travailleur: boolean;
+  annee_sortie: AnneePromotionOut | null;
+  telephone: string | null;
+  domaine: DomaineOut | null;
+  bio: string | null;
+  adresse: string | null;
+  pays_nom: string | null;
+  pays: string | null;
+  ville: string | null;
+  photo_profil: string | null;
+  slug: string;
+}
+
+export interface ProfilCreate {
+  nom_complet: string;
+  matricule: string | null;
+  titre: string | null;
+  statut_global: string;
+  travailleur: boolean;
+  annee_sortie: number | null;
+  telephone: string | null;
+  domaine: string | null;
+  bio: string | null;
+  adresse: string | null;
+}
+
+export interface ProfilUpdate {
+  nom_complet?: string | null;
+  matricule?: string | null;
+  titre?: string | null;
+  statut_global?: string | null;
+  travailleur?: boolean | null;
+  annee_sortie?: number | null;
+  telephone?: string | null;
+  domaine?: string | null;
+  adresse?: string | null;
+  bio?: string | null;
+}
+
+export interface UserOut {
+  id: UUID;
+  email: string;
+  role_systeme: string;
+  est_actif: boolean;
+  last_login: DateTimeString | null;
+  created_at: DateTimeString;
+  updated_at: DateTimeString;
+}
+
+export interface UserDetail {
+  id: UUID;
+  email: string;
+  role_systeme: string;
+  est_actif: boolean;
+  last_login: DateTimeString | null;
+  created_at: DateTimeString;
+  updated_at: DateTimeString;
+  profil: ProfilOut;
+}
+
+export interface UserCreateAdmin {
+  email: string;
+  role_systeme: string;
+  profil: ProfilCreate;
+}
+
+export interface UserUpdateAdmin {
+  email?: string | null;
+  role_systeme?: string | null;
+  est_actif?: boolean | null;
+  profil?: ProfilUpdate | null;
+}
+
+export interface PhotoUploadResponse {
+  message: string;
+  photo_profil: string | null;
+}
+
+export interface PhotoDeleteResponse {
+  message: string;
+}
+
+export interface ChangePassword {
+  old_password: string;
+  new_password: string;
+}
+
+export interface ResetPassword {
+  new_password: string | null;
+}
+
+export interface PasswordResponse {
+  message: string;
+  temporary_password: string | null;
+}
+
+export interface ProfilComplete {
+  id: UUID;
+  nom_complet: string;
+  matricule: string | null;
+  titre: TitreHonorifiqueOut | null;
+  statut_global: StatutGlobal;
+  travailleur: boolean;
+  annee_sortie: AnneePromotionOut | null;
+  telephone: string | null;
+  domaine: DomaineOut | null;
+  bio: string | null;
+  adresse: string | null;
+  pays_nom: string | null;
+  pays: string | null;
+  ville: string | null;
+  photo_profil: string | null;
+  slug: string;
+  created_at: DateTimeString;
+  updated_at: DateTimeString;
+  liens_reseaux: LienReseauSocialOut[];
+}
+
+export interface LienReseauSocialOut {
+  reseau: ReseauSocialOut;
+  id: UUID | null;
+  url: string;
+}
+
+export interface UserComplete {
+  id: UUID;
+  email: string;
+  role_systeme: string;
+  est_actif: boolean;
+  last_login: DateTimeString | null;
+  created_at: DateTimeString;
+  updated_at: DateTimeString;
+  profil: ProfilComplete;
+}

@@ -10,12 +10,20 @@ from .models import (
     Poste, Devise, TitreHonorifique, ReseauSocial
 )
 from core.models import User, AuditLog
-from users.models import Profil
+from users.models import Profil, LienReseauSocialProfil
 
 
 # ==========================================
 # 1. INLINE POUR PROFIL DANS USER ADMIN
 # ==========================================
+class LienReseauSocialProfilInline(admin.StackedInline):
+    model = LienReseauSocialProfil
+    can_delete = False
+    verbose_name_plural = _('Liens reseaux sociaux')
+    fk_name = 'profil'
+    fields = ('reseau', 'url', 'est_actif')
+    readonly_fields = ('id', 'created_at', 'updated_at')
+
 class ProfilInline(admin.StackedInline):
     model = Profil
     can_delete = False
@@ -27,6 +35,7 @@ class ProfilInline(admin.StackedInline):
         'bio', 'photo_profil', 'slug'
     )
     readonly_fields = ('id', 'created_at', 'updated_at')
+    inlines = [LienReseauSocialProfilInline]
 
 
 # ==========================================
@@ -139,20 +148,24 @@ class UserAdmin(BaseUserAdmin):
 class ProfilAdmin(admin.ModelAdmin):
     list_display = (
         'nom_complet', 'user_email', 'matricule','slug', 'statut_global',
-        'travailleur_badge', 'photo_thumbnail', 'created_at'
+        'pays', 'ville', 'adresse',
+        'travailleur_badge', 'photo_thumbnail', 'created_at', 
     )
     list_filter = ('statut_global', 'travailleur', 'created_at', 'deleted')
     search_fields = ('nom_complet', 'matricule', 'user__email', 'telephone', 'domaine')
     ordering = ('-created_at',)
     list_per_page = 25
     readonly_fields = ('id', 'created_at', 'updated_at', 'deleted_at')
-
+    inlines = [LienReseauSocialProfilInline]
     fieldsets = (
         (_('Lien utilisateur'), {
             'fields': ('user',)
         }),
         (_('Informations personnelles'), {
             'fields': ('nom_complet', 'matricule', 'titre', 'telephone', 'bio', 'photo_profil')
+        }),
+        (_('Adresse'), {
+            'fields': ('pays', 'ville', 'adresse')
         }),
         (_('Statut et domaine'), {
             'fields': ('statut_global', 'domaine', 'annee_sortie', 'travailleur')
