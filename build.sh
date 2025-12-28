@@ -8,4 +8,4 @@ npm install
 npm run build
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
-python manage.py createsuperuser --email $DJANGO_SUPERUSER_EMAIL --username $DJANGO_SUPERUSER_USERNAME --noinput
+python manage.py createsuperuser --noinput
