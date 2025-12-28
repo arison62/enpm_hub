@@ -1,10 +1,8 @@
 import {
-  ArrowLeft,
   Building2,
   MapPin,
   Users,
   Globe,
-  Edit,
   Calendar,
   Mail,
   Phone,

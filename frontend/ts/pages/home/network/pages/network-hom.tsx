@@ -28,7 +28,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useInternalNav } from "@/contexts/internal-nav-context";
-import NetworkProfile from "./network-profile";
 import NetworkFormPage from "./network-form-page";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
