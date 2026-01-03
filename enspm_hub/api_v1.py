@@ -8,7 +8,8 @@ import logging
 
 from core.api.auth import auth_router
 from core.api.references import references_router
-from users.api.views import users_router
+from users.api.users import users_router
+from users.api.experiences import experience_router
 from organizations.api.views import organisations_router
 from opportunities.api.views import (
     stages_router,
@@ -45,6 +46,8 @@ def root(request: HttpRequest):
             "formations": "/api/v1/trainings/"
         }
     }
+
+users_router.add_router("/experiences/", experience_router)
 
 # Inclusion des routers
 api_v1.add_router("/references/", references_router)

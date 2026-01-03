@@ -23,15 +23,19 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Switch } from "@/components/ui/switch";
-import {
-  ChevronsUpDown,
-  Check,
-} from "lucide-react";
+import { ChevronsUpDown, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { UserComplete } from "@/types/user";
+import type {
+  UserComplete,
+  ExperienceProfessionnelleCreateOrUpdate,
+  LienReseauSocialOut,
+} from "@/types/user";
 import axios from "@/lib/axios";
-import type { PaysOut, ReferencesAcademiquesOut } from "@/types/base";
+import type {
+  PaysOut,
+  ReferencesAcademiquesOut,
+  ReseauSocialOut,
+} from "@/types/base";
 import { useAuthStore } from "@/stores/authStore";
 import Axios from "axios";
 import {
@@ -48,6 +52,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 gsap.registerPlugin(useGSAP);
 
@@ -74,9 +79,31 @@ export default function ProfileEdit() {
     telephone: profil.telephone || null,
   });
 
-  const [professionalInfo, setProfessionalInfo] = useState({
-    travailleur: profil.travailleur || false,
+  const [experiences, setExperiences] = useState<
+    ExperienceProfessionnelleCreateOrUpdate[]
+  >(profil.experiences || []);
+  const [newExp, setNewExp] = useState<ExperienceProfessionnelleCreateOrUpdate>(
+    {
+      titre_poste: "",
+      nom_entreprise: "",
+      lieu: "",
+      date_debut: "",
+      date_fin: "",
+      description: "",
+      est_poste_actuel: false,
+    }
+  );
+  const [newLink, setNewLink] = useState<{ reseau_id: string; url: string }>({
+    reseau_id: "",
+    url: "",
   });
+  const [socialLinks, setSocialLinks] = useState<LienReseauSocialOut[]>(
+    profil.liens_reseaux || []
+  );
+  const [availableReseaux, setAvailableReseaux] = useState<ReseauSocialOut[]>(
+    []
+  );
+
   const [references, setReferences] = useState<ReferencesAcademiquesOut | null>(
     null
   );
@@ -134,15 +161,28 @@ export default function ProfileEdit() {
         setIsLoading((prev) => ({ ...prev, countries: false }));
       }
     }
+    async function getAvailableReseaux() {
+      try {
+        const response = await axios.get("/references/reseaux-sociaux");
+        if (response.status === 200) {
+          const data = response.data as ReseauSocialOut[];
+          setAvailableReseaux(data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading((prev) => ({ ...prev, links: false }));
+      }
+    }
     getAllCountries();
     getReferencesAcademique();
+    getAvailableReseaux();
   }, []);
   // Helper to submit section
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submitSection = async (section: string, data: any) => {
     setIsLoading((prev) => ({ ...prev, [section]: true }));
     try {
-      console.log(data);
       const response = await axios.put(`/users/${user.id}`, {
         profil: data,
       });
@@ -196,6 +236,91 @@ export default function ProfileEdit() {
       });
   };
 
+  const handleAddExperience = async () => {
+    setIsLoading((prev) => ({ ...prev, professional: true }));
+    try {
+      // Remove empty values from newExp
+      const cleanedNewExp = Object.fromEntries(
+        Object.entries(newExp).filter(
+          ([, v]) => v !== null && v !== "" && v !== undefined
+        )
+      );
+      const response = await axios.post(
+        `/users/experiences/${user.profil.id}/`,
+        cleanedNewExp
+      );
+      if (response.status === 201) {
+        setExperiences((prev) => [...prev, response.data]);
+        setNewExp({
+          titre_poste: "",
+          nom_entreprise: "",
+          lieu: "",
+          date_debut: "",
+          date_fin: "",
+          description: "",
+          est_poste_actuel: false,
+        });
+        toast.success("Expérience ajoutée avec succès");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "Une erreur s'est produite lors de l'ajout de l'expérience professionnelle."
+      );
+    } finally {
+      setIsLoading((prev) => ({ ...prev, professional: false }));
+    }
+  };
+  const handleDeleteExperience = async (id: string) => {
+    setIsLoading((prev) => ({ ...prev, professional: true }));
+    try {
+      const response = await axios.delete(`/users/experiences/${id}`);
+      if (response.status === 204) {
+        setExperiences((prev) =>
+          prev.filter((experience) => experience.id !== id)
+        );
+        toast.success("Expérience supprimée avec succès");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "Une erreur s'est produite lors de la suppression de l'expérience professionnelle."
+      );
+    } finally {
+      setIsLoading((prev) => ({ ...prev, professional: false }));
+    }
+  };
+
+  const handleAddSocialLink = async () => {
+    if (!newLink.reseau_id || !newLink.url) return;
+
+    setIsLoading((prev) => ({ ...prev, links: true }));
+    try {
+      const response = await axios.post(`/users/${user.id}/social-links`, {
+        reseau_id: newLink.reseau_id, // L'ID du réseau sélectionné
+        url: newLink.url,
+      });
+      setSocialLinks([...socialLinks, response.data]);
+      setNewLink({ reseau_id: "", url: "" });
+      toast.success("Réseau social ajouté");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erreur lors de l'ajout");
+    } finally {
+      setIsLoading((prev) => ({ ...prev, links: false }));
+    }
+  };
+
+  const handleDeleteSocial = async (id: string) => {
+    try {
+      await axios.delete(`/users/${user.id}/social-links/${id}`);
+      setSocialLinks(socialLinks.filter((l) => l.id !== id));
+      toast.success("Lien supprimé");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erreur de suppression");
+    }
+  };
   return (
     <>
       <main
@@ -470,31 +595,225 @@ export default function ProfileEdit() {
 
             {/* Professionnel */}
             <AccordionItem value="professional">
-              <AccordionTrigger>Statut Professionnel</AccordionTrigger>
+              <AccordionTrigger>Parcours Professionnel</AccordionTrigger>
               <AccordionContent className="space-y-6 pt-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="travailleur"
-                    checked={professionalInfo.travailleur}
-                    onCheckedChange={(checked) =>
-                      setProfessionalInfo({
-                        ...professionalInfo,
-                        travailleur: checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="travailleur">Actuellement employé</Label>
+                {/* Liste des expériences existantes */}
+                <div className="space-y-4">
+                  {experiences.length === 0 && (
+                    <p className="text-sm text-muted-foreground italic">
+                      Aucune expérience renseignée.
+                    </p>
+                  )}
+                  {experiences.map((exp) => (
+                    <div
+                      key={exp.id}
+                      className="flex justify-between items-start p-3 border rounded-lg bg-slate-50"
+                    >
+                      <div>
+                        <h4 className="font-bold text-sm">{exp.titre_poste}</h4>
+                        <p className="text-sm text-blue-600">
+                          {exp.nom_entreprise}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(exp.date_debut).toLocaleDateString()} -{" "}
+                          {exp.est_poste_actuel ? "Aujourd'hui" : exp.date_fin}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          handleDeleteExperience(exp.id!);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Button
-                  onClick={() =>
-                    submitSection("professional", professionalInfo)
-                  }
-                  disabled={isLoading.professional}
-                >
-                  {isLoading.professional
-                    ? "Enregistrement..."
-                    : "Enregistrer le statut pro"}
-                </Button>
+
+                {/* Formulaire d'ajout rapide ou Bouton déclencheur */}
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium mb-4">
+                    Ajouter une expérience
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Titre du poste *</Label>
+                      <Input
+                        value={newExp.titre_poste}
+                        onChange={(e) =>
+                          setNewExp({ ...newExp, titre_poste: e.target.value })
+                        }
+                        placeholder="Ex: Ingénieur Logiciel"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Entreprise *</Label>
+                      <Input
+                        value={newExp.nom_entreprise}
+                        onChange={(e) =>
+                          setNewExp({
+                            ...newExp,
+                            nom_entreprise: e.target.value,
+                          })
+                        }
+                        placeholder="Ex: Orange Cameroun"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date de début *</Label>
+                      <Input
+                        type="date"
+                        value={newExp.date_debut}
+                        onChange={(e) =>
+                          setNewExp({ ...newExp, date_debut: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date de fin</Label>
+                      <Input
+                        type="date"
+                        disabled={newExp.est_poste_actuel}
+                        value={newExp.date_fin || ""}
+                        onChange={(e) =>
+                          setNewExp({ ...newExp, date_fin: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 md:col-span-2">
+                      <Checkbox
+                        id="current"
+                        checked={newExp.est_poste_actuel}
+                        onCheckedChange={(checked) =>
+                          setNewExp({ ...newExp, est_poste_actuel: !!checked })
+                        }
+                      />
+                      <Label htmlFor="current">C'est mon poste actuel</Label>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={newExp.description || ""}
+                        onChange={(e) =>
+                          setNewExp({ ...newExp, description: e.target.value })
+                        }
+                        placeholder="Décrivez vos missions..."
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    className="mt-4"
+                    disabled={
+                      isLoading.professional ||
+                      !newExp.titre_poste ||
+                      !newExp.nom_entreprise
+                    }
+                    onClick={handleAddExperience}
+                  >
+                    {isLoading.professional
+                      ? "Ajout en cours..."
+                      : "Ajouter cette expérience"}
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Réseaux Sociaux */}
+            <AccordionItem value="social">
+              <AccordionTrigger>Réseaux Sociaux & Liens</AccordionTrigger>
+              <AccordionContent className="space-y-6 pt-4">
+                {/* Liste des liens existants */}
+                <div className="grid grid-cols-1 gap-3">
+                  {socialLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      className="flex items-center justify-between p-3 border rounded-md bg-slate-50"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-white p-2 rounded shadow-sm font-bold text-blue-600">
+                          {link.reseau.nom[0]}{" "}
+                          {/* Initiale ou icône si dispo */}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {link.reseau.nom}
+                          </p>
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            className="text-xs text-blue-500 hover:underline truncate max-w-[200px] block"
+                          >
+                            {link.url}
+                          </a>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteSocial(link.id!)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-400" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Formulaire d'ajout */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Choisir un réseau</Label>
+                      <Select
+                        value={newLink.reseau_id}
+                        onValueChange={(val) =>
+                          setNewLink({ ...newLink, reseau_id: val })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableReseaux
+                            // Filtrer pour ne pas proposer un réseau déjà ajouté
+                            .filter(
+                              (r) =>
+                                !socialLinks.find((sl) => sl.reseau.id === r.id)
+                            )
+                            .map((r) => (
+                              <SelectItem key={r.id} value={r.id!}>
+                                {r.nom}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>URL du profil</Label>
+                      <Input
+                        type="url"
+                        placeholder="https://..."
+                        value={newLink.url}
+                        onChange={(e) =>
+                          setNewLink({ ...newLink, url: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={handleAddSocialLink}
+                    disabled={
+                      isLoading.links || !newLink.reseau_id || !newLink.url
+                    }
+                  >
+                    {isLoading.links ? "Ajout..." : "Ajouter le réseau social"}
+                  </Button>
+                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>

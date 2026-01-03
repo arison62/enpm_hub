@@ -6,6 +6,7 @@ import { ProfileHeader } from "./profile-header";
 import { ProfileSidebar } from "./profile-sidebar";
 import { useAuthStore } from "@/stores/authStore";
 import type { UserComplete } from "@/types/user";
+import ExperiencesTab from "./experiences-tab-content";
 
 export const ProfileContent = ({ user }: { user: UserComplete }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,7 +53,7 @@ export const ProfileContent = ({ user }: { user: UserComplete }) => {
               </TabsList>
 
               <TabsContent value="experiences" className="mt-6">
-                {/* Contenu Expériences... */}
+                <ExperiencesTab experiences={user.profil.experiences} isOwnProfile={isOwner} />
               </TabsContent>
               {/* Autres TabsContent... */}
             </Tabs>

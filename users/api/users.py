@@ -438,7 +438,7 @@ def add_social_link_endpoint(
         social_link = user_service.add_social_link(
             acting_user=request.auth, # type: ignore
             user=user,
-            reseau=payload.reseau, # type: ignore
+            reseau_id=payload.reseau_id, # type: ignore
             url=payload.url,
             request=request
         )

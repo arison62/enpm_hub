@@ -10,7 +10,7 @@ from .models import (
     Poste, Devise, TitreHonorifique, ReseauSocial
 )
 from core.models import User, AuditLog
-from users.models import Profil, LienReseauSocialProfil
+from users.models import Profil, LienReseauSocialProfil, ExperienceProfessionnelle
 
 
 # ==========================================
@@ -18,11 +18,24 @@ from users.models import Profil, LienReseauSocialProfil
 # ==========================================
 class LienReseauSocialProfilInline(admin.StackedInline):
     model = LienReseauSocialProfil
-    can_delete = False
+    can_delete = True
     verbose_name_plural = _('Liens reseaux sociaux')
     fk_name = 'profil'
     fields = ('reseau', 'url', 'est_actif')
     readonly_fields = ('id', 'created_at', 'updated_at')
+
+class ExperienceProfessionnelleInline(admin.StackedInline):
+    model = ExperienceProfessionnelle
+    can_delete = True
+    verbose_name_plural = _('Expériences professionnelles')
+    fk_name = 'profil'
+    fields = (
+        'titre_poste', 'nom_entreprise', 'lieu', 
+        'date_debut', 'date_fin', 'est_poste_actuel', 
+        'description'
+    )
+    readonly_fields = ('id', 'created_at', 'updated_at')
+
 
 class ProfilInline(admin.StackedInline):
     model = Profil
@@ -31,11 +44,11 @@ class ProfilInline(admin.StackedInline):
     fk_name = 'user'
     fields = (
         'nom_complet', 'matricule', 'titre', 'statut_global',
-        'travailleur', 'annee_sortie', 'telephone', 'domaine',
+         'annee_sortie', 'telephone', 'domaine',
         'bio', 'photo_profil', 'slug'
     )
     readonly_fields = ('id', 'created_at', 'updated_at')
-    inlines = [LienReseauSocialProfilInline]
+    inlines = [LienReseauSocialProfilInline, ExperienceProfessionnelleInline]
 
 
 # ==========================================
@@ -149,14 +162,14 @@ class ProfilAdmin(admin.ModelAdmin):
     list_display = (
         'nom_complet', 'user_email', 'matricule','slug', 'statut_global',
         'pays', 'ville', 'adresse',
-        'travailleur_badge', 'photo_thumbnail', 'created_at', 
-    )
-    list_filter = ('statut_global', 'travailleur', 'created_at', 'deleted')
+        'photo_thumbnail', 'created_at', 
+    )   
+    list_filter = ('statut_global', 'created_at', 'deleted')
     search_fields = ('nom_complet', 'matricule', 'user__email', 'telephone', 'domaine')
     ordering = ('-created_at',)
     list_per_page = 25
     readonly_fields = ('id', 'created_at', 'updated_at', 'deleted_at')
-    inlines = [LienReseauSocialProfilInline]
+    inlines = [LienReseauSocialProfilInline, ExperienceProfessionnelleInline]
     fieldsets = (
         (_('Lien utilisateur'), {
             'fields': ('user',)
@@ -168,7 +181,7 @@ class ProfilAdmin(admin.ModelAdmin):
             'fields': ('pays', 'ville', 'adresse')
         }),
         (_('Statut et domaine'), {
-            'fields': ('statut_global', 'domaine', 'annee_sortie', 'travailleur')
+            'fields': ('statut_global', 'domaine', 'annee_sortie')
         }),
         (_('Métadonnées'), {
             'fields': ('id', 'slug', 'created_at', 'updated_at', 'deleted', 'deleted_at'),
@@ -180,9 +193,6 @@ class ProfilAdmin(admin.ModelAdmin):
         return obj.user.email if obj.user else '-'
     user_email.short_description = _('Email')
 
-    @admin.display(description='Travailleur', boolean=True)
-    def travailleur_badge(self, obj):
-        return obj.travailleur
 
     @admin.display(description='Photo')
     def photo_thumbnail(self, obj):

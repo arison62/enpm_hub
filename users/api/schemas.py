@@ -5,12 +5,72 @@ from ninja import Schema, Field, ModelSchema
 from pydantic import UUID4, EmailStr, field_validator
 from datetime import datetime
 from core.models import User
-from users.models import Profil, LienReseauSocialProfil
+from core.utils.date_formatters import format_linkedin_duration
+from users.models import ExperienceProfessionnelle, Profil, LienReseauSocialProfil
 from core.api.schemas import PaginationMetaSchema
 from core.api.schemas import (
     AnneePromotionSimple, DomaineSimple, TitreHonorifiqueSimple,
     SecteurActiviteSimple, PosteSimple, DeviseSimple, ReseauSocialSimple
 )
+
+# ==========================================
+# SCHÉMAS EXPÉRIENCE PROFESSIONNELLE
+# ==========================================
+
+class ExperienceProfessionnelleOut(ModelSchema):
+    """Schéma de sortie pour une expérience professionnelle"""
+    organisation_nom: str
+    duree_texte: Optional[str] = None
+
+    
+    class Meta:
+        model = ExperienceProfessionnelle
+        fields = [
+            'id', 'titre_poste', 'nom_entreprise', 'lieu', 
+            'date_debut', 'date_fin', 'est_poste_actuel', 
+            'description', 'created_at'
+        ]
+
+    @staticmethod
+    def resolve_organisation_nom(obj):
+        """Affiche le nom de l'organisation liée ou le texte libre"""
+        
+        if obj.organisation:
+            return obj.organisation.nom
+        return obj.nom_entreprise
+    
+    @staticmethod
+    def resolve_duree_text(obj):
+        """Affiche la durée de l'experience en texte"""
+        return format_linkedin_duration(obj.date_debut, obj.date_fin)
+    
+class ExperienceProfessionnelleCreate(Schema):
+    """Schéma pour ajouter une expérience"""
+    titre_poste: str = Field(..., max_length=255)
+    nom_entreprise: str = Field(..., max_length=255)
+    lieu: Optional[str] = None
+    date_debut: datetime
+    date_fin: Optional[datetime] = None
+    est_poste_actuel: bool = False
+    description: Optional[str] = None
+    organisation_id: Optional[UUID4] = None
+
+class ExperienceProfessionnelleUpdate(Schema):
+    """Schéma pour modifier une expérience (tout est optionnel)"""
+    titre_poste: Optional[str] = None
+    nom_entreprise: Optional[str] = None
+    lieu: Optional[str] = None
+    date_debut: Optional[datetime] = None
+    date_fin: Optional[datetime] = None
+    est_poste_actuel: Optional[bool] = None
+    description: Optional[str] = None
+    organisation_id: Optional[UUID4] = None
+
+# ==========================================
+# MISES À JOUR DES SCHÉMAS EXISTANTS
+# ==========================================
+
+
 
 class ProfilBaseOut(ModelSchema):
     """Schéma de base pour Profil (sans réseaux sociaux)"""
@@ -20,11 +80,12 @@ class ProfilBaseOut(ModelSchema):
     pays : Optional[str]
     pays_nom : Optional[str]
     annee_sortie : Optional[AnneePromotionSimple] = None
+    est_en_poste : bool = False
 
     class Meta:
         model = Profil
         fields = [
-            'id', 'nom_complet', 'matricule', 'titre', 'statut_global', 'travailleur',
+            'id', 'nom_complet', 'matricule', 'titre', 'statut_global',
             'annee_sortie', 'adresse', 'telephone', 'ville', 'pays', 'domaine', 'bio',
             'slug', 'created_at', 'updated_at'
         ]
@@ -75,15 +136,28 @@ class ProfilBaseOut(ModelSchema):
     def resolve_pays_nom(obj):
         """Retourne le nom du pays"""
         return obj.pays.name if obj.pays else None
+    
+    @staticmethod
+    def resolve_est_en_poste(obj):
+        """Déduit si l'utilisateur travaille actuellement"""
+        return obj.experiences.filter(est_poste_actuel=True).exists()
+
 
 class ProfilCompleteOut(ProfilBaseOut):
-    """Schéma complet pour Profil avec réseaux sociaux (étend ProfilBaseOut)"""
+    """Schéma complet enrichi avec réseaux sociaux ET expériences"""
     liens_reseaux: List['LienReseauSocialOut'] = []
+    experiences: List[ExperienceProfessionnelleOut] = []
+    est_en_poste: bool = False
 
     @staticmethod
     def resolve_liens_reseaux(obj):
-        """Retourne les liens réseaux actifs"""
         return list(obj.liens_reseaux.filter(est_actif=True).select_related('reseau'))
+
+    @staticmethod
+    def resolve_experiences(obj):
+        """Retourne les expériences triées par date de début décroissante"""
+        return list(obj.experiences.all().order_by('-date_debut'))
+
 
 
 # ==========================================
@@ -97,7 +171,6 @@ class ProfilCreate(Schema):
     matricule: Optional[str] = None
     titre_id: Optional[UUID4] = None  # FK vers TitreHonorifique
     statut_global: str = 'etudiant'
-    travailleur: bool = False
     annee_sortie_id: Optional[UUID4] = None  # FK vers AnneePromotion
     adresse: Optional[str] = Field(None, description="Adresse", max_length=255)
     telephone: Optional[str] = Field(None, description="N° de tél.", max_length=20)
@@ -120,7 +193,7 @@ class ProfilUpdate(ModelSchema):
     class Meta:
         model = Profil
         fields = [
-            'nom_complet', 'matricule', 'statut_global', 'travailleur',
+            'nom_complet', 'matricule', 'statut_global',
              'adresse', 'telephone', 'ville', 'pays', 'bio'
         ]
         fields_optional = '__all__'
@@ -154,7 +227,7 @@ class LienReseauSocialOut(ModelSchema):
         }
 class LienReseauSocialCreate(Schema):
     """Schéma création lien réseau social"""
-    reseau: UUID4
+    reseau_id: UUID4
     url: str
 
 class LienReseauSocialUpdate(Schema):
@@ -248,6 +321,8 @@ class PhotoUploadResponse(Schema):
 
 class PhotoDeleteResponse(Schema):
     message: str = "Photo supprimée"
+
+
 
 
 

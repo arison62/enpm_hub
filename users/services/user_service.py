@@ -370,7 +370,7 @@ class UserService:
     def add_social_link(
         acting_user: User, 
         user: User, 
-        reseau: str, 
+        reseau_id: str, 
         url: str,
         request=None
     ) -> LienReseauSocialProfil:
@@ -393,12 +393,12 @@ class UserService:
         
         social_link = LienReseauSocialProfil.objects.create(
             profil=profil,
-            reseau=reseau,
+            reseau_id=reseau_id,
             url=url,
             est_actif=True
         )
         
-        logger.info(f"Lien {reseau} ajouté au profil {profil.id} par {acting_user.email}")
+        logger.info(f"Lien {reseau_id} ajouté au profil {profil.id} par {acting_user.email}")
         
         audit_log_service.log_action(
             user=acting_user,
@@ -406,7 +406,7 @@ class UserService:
             entity_type='LienReseauSocial',
             entity_id=social_link.id,
             request=request,
-            new_values={'nom_reseau': reseau, 'url': url}
+            new_values={'nom_reseau': reseau_id, 'url': url}
         )
         
         return social_link

@@ -26,8 +26,6 @@ class Profil(ENSPMHubBaseModel):
     )
     
     statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
-    travailleur = models.BooleanField(default=False, verbose_name=_("Travailleur"))
-    
     annee_sortie = models.ForeignKey(
         'core.AnneePromotion',
         null=True,
@@ -64,6 +62,82 @@ class Profil(ENSPMHubBaseModel):
 
     def __str__(self):
         return self.nom_complet or self.user.email
+ 
+class ExperienceProfessionnelle(ENSPMHubBaseModel):
+    """
+    Représente une étape du parcours professionnel d'un membre.
+    """
+    profil = models.ForeignKey(
+        'users.Profil', 
+        on_delete=models.CASCADE, 
+        related_name='experiences',
+        verbose_name=_("Profil")
+    )
+    
+    # Champs descriptifs libres
+    titre_poste = models.CharField(
+        max_length=255, 
+        verbose_name=_("Titre du poste"),
+        help_text=_("Ex: Ingénieur Logiciel, Consultant, Directeur Technique...")
+    )
+    nom_entreprise = models.CharField(
+        max_length=255, 
+        verbose_name=_("Entreprise ou Organisation")
+    )
+    lieu = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        verbose_name=_("Lieu (Ville, Pays ou Distanciel)")
+    )
+    
+    # Chronologie
+    date_debut = models.DateField(verbose_name=_("Date de début"))
+    date_fin = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name=_("Date de fin"),
+        help_text=_("Laissez vide si vous occupez toujours ce poste")
+    )
+    est_poste_actuel = models.BooleanField(
+        default=False, 
+        verbose_name=_("Poste actuel")
+    )
+    
+    # Contenu riche
+    description = models.TextField(
+        null=True, 
+        blank=True, 
+        verbose_name=_("Missions et réalisations")
+    )
+    
+    # Lien optionnel vers le module Partenaires
+    organisation = models.ForeignKey(
+        'organizations.Organisation', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='experiences_liees',
+        verbose_name=_("Lien avec une organisation du Hub")
+    )
+
+    class Meta:
+        verbose_name = _("Expérience Professionnelle")
+        db_table = 'experience_professionnelle'
+        ordering = ['-date_debut']
+        indexes = [
+            models.Index(fields=['profil', '-date_debut']),
+            models.Index(fields=['est_poste_actuel']),
+        ]
+
+    def __str__(self):
+        return f"{self.titre_poste} @ {self.nom_entreprise}"
+
+    def save(self, *args, **kwargs):
+        # Logique métier simple : si date_fin est nulle, c'est probablement un poste actuel
+        if not self.date_fin:
+            self.est_poste_actuel = True
+        super().save(*args, **kwargs) 
     
 class LienReseauSocialProfil(ENSPMHubBaseModel):
     profil = models.ForeignKey(Profil, on_delete=models.CASCADE, related_name='liens_reseaux')

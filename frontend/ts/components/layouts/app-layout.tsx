@@ -124,7 +124,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <SheetContent side="right">
                 <div className="flex flex-col gap-6 mt-8">
                   <Link
-                    href="/profile"
+                    href={`/profile/${user?.profil?.slug}`}
                     className="flex items-center gap-3 text-lg"
                   >
                     <Avatar className="size-10">

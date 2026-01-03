@@ -64,6 +64,7 @@ export interface ProfilOut {
   pays: string | null;
   ville: string | null;
   photo_profil: string | null;
+  est_en_poste: boolean;
   slug: string;
 }
 
@@ -150,6 +151,29 @@ export interface PasswordResponse {
   temporary_password: string | null;
 }
 
+export interface ExperienceProfessionnelleOut {
+  id: UUID;
+  nom_entreprise: string;
+  duree_texte: string | null;
+  titre_poste: string;
+  lieu: string | null;
+  date_debut: DateTimeString;
+  date_fin: DateTimeString | null;
+  est_poste_actuel: boolean;
+  description: string | null;
+} 
+
+export interface ExperienceProfessionnelleCreateOrUpdate {
+  id?: UUID;
+  nom_entreprise: string;
+  lieu: string | null;
+  titre_poste: string;
+  date_debut: DateTimeString;
+  date_fin: DateTimeString | null;
+  est_poste_actuel: boolean;
+  description: string | null;
+}
+
 export interface ProfilComplete {
   id: UUID;
   nom_complet: string;
@@ -170,6 +194,7 @@ export interface ProfilComplete {
   created_at: DateTimeString;
   updated_at: DateTimeString;
   liens_reseaux: LienReseauSocialOut[];
+  experiences: ExperienceProfessionnelleOut[];
 }
 
 export interface LienReseauSocialOut {
