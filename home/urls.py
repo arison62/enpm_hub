@@ -10,11 +10,11 @@ from .views.profile import ProfileView
 
 urlpatterns = [
     path('', index),
-    path('home/', HomeView.as_view(), name='home'),
-    path('network/', NetworkView.as_view(), name='network'),
-    path('opportunities/', OpportunitiesView.as_view(), name='opportunities'),
-    path('chat/', ChatView.as_view(), name="chat"),
-    path('internships/', InternshipsView.as_view(), name="internships"),
+    path('home', HomeView.as_view(), name='home'),
+    path('network', NetworkView.as_view(), name='network'),
+    path('opportunities', OpportunitiesView.as_view(), name='opportunities'),
+    path('chat', ChatView.as_view(), name="chat"),
+    path('internships', InternshipsView.as_view(), name="internships"),
     path('profile/<slug:slug>', ProfileView.as_view(), name="profile"),
-    path('login/', LoginView.as_view(), name='login'),
+    path('login', LoginView.as_view(), name='login'),
 ]

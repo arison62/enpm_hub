@@ -23,7 +23,7 @@ def list_experiences(request: HttpRequest, profil_id: Optional[UUID] = None):
     """
     return experience_service.list_experiences(user=request.auth, profil_id=profil_id) # type: ignore
 
-@experience_router.post("/{profil_id}/", response={201: ExperienceProfessionnelleOut}, auth=jwt_auth)
+@experience_router.post("/{profil_id}", response={201: ExperienceProfessionnelleOut}, auth=jwt_auth)
 def create_experience(request: HttpRequest, profil_id: UUID, payload: ExperienceProfessionnelleCreate):
     """
     Ajoute une nouvelle expérience au profil de l'utilisateur connecté.
@@ -32,7 +32,7 @@ def create_experience(request: HttpRequest, profil_id: UUID, payload: Experience
     # L'audit est géré dans le service via transaction.atomic
     return experience_service.create_experience(acting_user=request.auth, profil_id=profil_id, data=payload) # type: ignore
 
-@experience_router.put("/{experience_id}/", response=ExperienceProfessionnelleOut, auth=jwt_auth)
+@experience_router.put("/{experience_id}", response=ExperienceProfessionnelleOut, auth=jwt_auth)
 def update_experience(request: HttpRequest, experience_id: UUID, payload: ExperienceProfessionnelleUpdate):
     """
     Met à jour une expérience existante.

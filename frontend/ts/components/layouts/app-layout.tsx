@@ -29,31 +29,31 @@ const NAVIGATION_ITEMS = [
   {
     icon: Home,
     label: "Accueil",
-    href: "/home/",
+    href: "/home",
     badge: false,
   },
   {
     icon: Users2,
     label: "Réseau",
-    href: "/network/",
+    href: "/network",
     badge: false,
   },
   {
     icon: Briefcase,
     label: "Opportunités",
-    href: "/opportunities/",
+    href: "/opportunities",
     badge: false,
   },
   {
     icon: MessageSquare,
     label: "Messages",
-    href: "/chat/",
+    href: "/chat",
     badge: false,
   },
   {
     icon: GraduationCap,
     label: "Stages",
-    href: "/internships/",
+    href: "/internships",
     badge: false,
   },
 ];

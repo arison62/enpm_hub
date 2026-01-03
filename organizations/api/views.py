@@ -76,7 +76,7 @@ def create_organisation_endpoint(
         return 400, {"detail": "Erreur lors de la création"}
 
 @organisations_router.post(
-    "/with-members/",
+    "/with-members",
     response={201: OrganisationCompleteOut, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse},
     auth=jwt_auth
 )
