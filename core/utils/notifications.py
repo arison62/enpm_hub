@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from core.services.email_service import EmailTemplates
 import logging
 
 logger = logging.getLogger("app")
@@ -31,10 +32,12 @@ class EmailNotificationSender(BaseNotificationSender):
         :param recipient: L'adresse e-mail du destinataire.
         :param otp: Le code OTP à envoyer.
         """
-        # Logique d'envoi d'e-mail (à implémenter)
-        logger.info(f"Envoi de l'OTP {otp} à l'adresse e-mail {recipient}")
-        # Ici, vous pouvez intégrer avec un service d'envoi d'e-mails réel
-        pass
+        EmailTemplates.send_password_reset_email(
+            user_email=recipient,
+            user_name= recipient,
+            otp_code=otp
+        )
+        logger.info(f"Envoi de l'OTP à l'adresse e-mail {recipient}")
 
 class SMSNotificationSender(BaseNotificationSender):
     """

@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "dev:backend": "python manage.py run_huey --huey-verbose & python manage.py runserver",
+    "dev:maildev": "maildev --web 1080 --smtp 1025",
     "css:dev": "npx @tailwindcss/cli -i ./static/css/tailwindcss.css -o ./static/css/base.css --watch",
     "css:build": "npx @tailwindcss/cli -i ./static/css/tailwindcss.css -o ./static/css/base.css --minify"
   },

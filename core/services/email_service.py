@@ -172,7 +172,7 @@ class EmailTemplates:
         )
     
     @staticmethod
-    def send_password_reset_email(user_email: str, user_name: str, reset_link: str):
+    def send_password_reset_email(user_email: str, user_name: str, otp_code: str):
         """Envoie un email de réinitialisation de mot de passe."""
         EmailService.send_email_async(
             subject="Réinitialisation de votre mot de passe",
@@ -180,7 +180,8 @@ class EmailTemplates:
             template_name='emails/password_reset.html',
             context={
                 'user_name': user_name,
-                'reset_link': reset_link
+                'otp_code': otp_code,
+                'reset_url': f"{settings.SITE_URL}/password-reset"
             }
         )
     
@@ -188,13 +189,14 @@ class EmailTemplates:
     def send_password_recovery_email(user_email: str, user_name: str, temp_password: str):
         """Envoie un email avec le nouveau mot de passe temporaire."""
         EmailService.send_email_async(
-            subject="Votre nouveau mot de passe temporaire pour ENSPM Hub",
+            subject="Nouveau mot de passe pour ENSPM Hub",
             to_emails=[user_email],
             template_name='emails/password_recovery.html',
             context={
                 'user_name': user_name,
                 'temp_password': temp_password,
-                'login_url': f"{settings.SITE_URL}/login"
+                'login_url': f"{settings.SITE_URL}/login",
+                'support_email': settings.SUPPORT_EMAIL
             }
         )
 
