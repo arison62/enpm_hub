@@ -6,6 +6,7 @@ from .views.opportunites import OpportunitiesView
 from .views.chat import ChatView
 from .views.auth import LoginView
 from .views.profile import ProfileView
+from .views.auth import PasswordResetView
 
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('internships', InternshipsView.as_view(), name="internships"),
     path('profile/<slug:slug>', ProfileView.as_view(), name="profile"),
     path('login', LoginView.as_view(), name='login'),
+    path('password-reset', PasswordResetView.as_view(), name='password_reset'),
 ]

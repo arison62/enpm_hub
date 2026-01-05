@@ -65,7 +65,7 @@ const LoginForm = () => {
         formRef.current?.reset();
         const response = await apiClient.get("auth/me");
         setUser(response.data);
-        router.visit("/home/");
+        router.visit("/home");
       } catch (error) {
         if (Axios.isAxiosError<ApiErrorResponse>(error)) {
           const message =
@@ -116,7 +116,7 @@ const LoginForm = () => {
           <div className="flex items-center">
             <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
             <Link
-              href="#"
+              href="/password-reset"
               className="ml-auto text-sm underline-offset-4 hover:underline"
             >
               Mot de passe oublie ?
