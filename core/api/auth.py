@@ -1,7 +1,8 @@
 # core/api/auth.py
 from ninja import Router
+from ninja.throttling import AnonRateThrottle
 from django.http import HttpRequest
-from core.api.schemas import EmailSchema, LoginSchema, RefreshTokenSchema, TokenSchema
+from core.api.schemas import LoginSchema, PasswordResetConfirm, PasswordResetRequest, RefreshTokenSchema, TokenSchema
 from core.services.auth_service import AuthService, jwt_auth
 from django.views.decorators.csrf import csrf_exempt
 from users.api.schemas import UserDetailOut,  MessageResponse, ValidationErrorResponse
@@ -94,24 +95,37 @@ def get_current_user(request: HttpRequest):
     # Le type est garanti d'être User car l'authentification a réussi
     return 200, request.auth # type: ignore
 
-@auth_router.post(
-    "/recover-password",
-    response={204: None, 422: ValidationErrorResponse},
-    summary="Lance la procédure de récupération de mot de passe"
-)
-def recover_password_endpoint(request: HttpRequest, payload: EmailSchema):
-    """
-    Génère un nouveau mot de passe aléatoire pour l'utilisateur
-    et l'envoie par email. Retourne toujours 204 pour des raisons de sécurité.
-    """
-    result = user_service.recover_password(payload.email)
 
-    if result:
-        user, new_password = result
-        EmailTemplates.send_password_recovery_email(
-            user_email=user.email,
-            user_name=user.profil.nom_complet, # type: ignore
-            temp_password=new_password
-        )
-
+@auth_router.post("/password-reset-request"
+    , response={204: None, 422: ValidationErrorResponse}
+    ,summary="Lance la procédure de réinitialisation du mot de passe")
+def password_reset_request_endpoint(request: HttpRequest, payload: PasswordResetRequest):
+    """
+    Lance la procédure de réinitialisation de mot de passe en générant un token OTP
+    et en l'envoyant par la méthode spécifiée (email ou SMS).
+    Retourne toujours 204 pour des raisons de sécurité.
+    """
+    AuthService.request_password_reset(user_id=payload.user_id, method=payload.method)
     return 204, None
+
+@auth_router.post("/password-reset-confirm", 
+    response={204: None, 400: MessageResponse, 422: ValidationErrorResponse},
+    throttle=[
+        AnonRateThrottle(rate='5/m'),  # 5 requêtes par minute pour les utilisateurs anonymes
+    ]
+    ,summary="Confirme la réinitialisation du mot de passe")
+def password_reset_confirm_endpoint(request: HttpRequest, payload: PasswordResetConfirm):
+    """
+    Confirme la réinitialisation du mot de passe en validant le token OTP
+    et en mettant à jour le mot de passe de l'utilisateur.
+    Retourne 204 si réussi, 400 si le token est invalide ou expiré.
+    """
+    success = AuthService.confirm_password_reset(
+        user_id=payload.user_id,
+        token=payload.token,
+        new_password=payload.new_password
+    )
+    if success:
+        return 204, None
+    else:
+        return 400, {"detail": "Token invalide ou expiré."}

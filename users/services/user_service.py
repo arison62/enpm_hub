@@ -225,25 +225,6 @@ class UserService:
         )
         return user
 
-    @staticmethod
-    def recover_password(email: str) -> Optional[tuple[User, str]]:
-        """
-        Génère un nouveau mot de passe pour un utilisateur et l'envoie par email.
-        Retourne l'utilisateur et le nouveau mot de passe si l'utilisateur est trouvé, sinon None.
-        """
-        try:
-            user = User.objects.select_related('profil').get(email=email)
-            new_password = get_random_string(12)
-            user.password = make_password(new_password)
-            user.save()
-
-            logger.info(f"Nouveau mot de passe généré pour l'utilisateur {email}.")
-            # Note: L'envoi de l'email est géré par le endpoint pour plus de flexibilité.
-            return user, new_password
-        except User.DoesNotExist:
-            logger.warning(f"Tentative de récupération de mot de passe pour un email inexistant: {email}.")
-            return None
-
         
     @staticmethod
     def get_user_by_id(user_id: str, include_relations: bool = True) -> Optional[User]:

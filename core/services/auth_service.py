@@ -1,13 +1,19 @@
 # core/services/auth_service.py
-import logging
+from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
+from django.db.models import Q
 from django.conf import settings
 from ninja.security import HttpBearer
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
-from core.models import User
+from core.models import User, PasswordResetToken
+from django.utils import timezone
+from core.utils.notifications import NotificationFactory
 from core.services.audit_service import audit_log_service, AuditLog
+import random
+import string
+import logging
 
 logger = logging.getLogger('app')
 
@@ -138,5 +144,74 @@ class AuthService:
             }
         )
 
+    @staticmethod
+    @transaction.atomic
+    def request_password_reset(user_id: str, method: str = "email") -> bool:
+        """
+        Gère la demande de réinitialisation de mot de passe.
+        Génère un token, l'enregistre en base et envoie la notification.
+        
+        :param user_id: email ou telephone de l'utilisateur demandant la réinitialisation.
+        :param method: Méthode de notification ("email" ou "sms").
+        :return: None
+        """
+        try:
+            query = Q(email=user_id) | Q(profil__telephone=user_id)
+            user = User.objects.get(query, est_actif=True, deleted=False)
+            otp_token = f"{random.randint(100000, 999999)}"
+            duration = settings.PASSWORD_RESET_TOKEN_DURATION or timezone.now() + timedelta(minutes=5) # Par défaut 5 minutes
+            
+            PasswordResetToken.objects.filter(user=user, is_used=False).update(is_used=True)
+        
+            token = PasswordResetToken.objects.create(user=user, token=otp_token)
+            sender = NotificationFactory.get_sender(method)
+            if method == "email":
+                recipient = user.email
+            else:
+                recipient = user.profil.telephone  # type: ignore
+            sender.send_otp(recipient=recipient, otp=otp_token)
+            return True
+        except User.DoesNotExist:
+            logger.warning(f"Demande de réinitialisation de mot de passe pour utilisateur inconnu: {user_id}")
+            return False
+        except Exception as e:
+            logger.error(f"Erreur lors de la demande de réinitialisation de mot de passe: {str(e)}")
+            return False
+    
+    
+    @staticmethod
+    @transaction.atomic
+    def confirm_password_reset(user_id: str, token: str, new_password: str) -> bool:
+        """
+        Vérifie le token de réinitialisation et met à jour le mot de passe.
+        
+        :param user_id: email ou telephone de l'utilisateur.
+        :param token: Token OTP reçu par l'utilisateur.
+        :param new_password: Nouveau mot de passe à définir.
+        :return: True si la réinitialisation a réussi, False sinon.
+        """
+        try:
+            query = Q(email=user_id) | Q(profil__telephone=user_id)
+            user = User.objects.get(query, est_actif=True, deleted=False)
+            reset_token = PasswordResetToken.objects.get(
+                user=user,
+                token=token,
+                is_used=False,
+                expires_at__gt=timezone.now()
+            )
+            user.set_password(new_password)
+            user.save()
+            reset_token.is_used = True
+            reset_token.save()
+            logger.info(f"Réinitialisation de mot de passe réussie pour l'utilisateur ID: {user.id}")
+            return True
+        except (User.DoesNotExist, PasswordResetToken.DoesNotExist):
+            logger.warning(f"Échec de la réinitialisation de mot de passe pour utilisateur: {user_id} avec token: {token}")
+            return False
+        except Exception as e:
+            logger.error(f"Erreur lors de la réinitialisation de mot de passe: {str(e)}")
+            return False
+        
+    
 # Instanciation de la classe de sécurité pour l'injection dans les endpoints
 jwt_auth = JWTAuthBearer()

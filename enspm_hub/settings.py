@@ -216,12 +216,13 @@ SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': env('SECRET_KEY')
 }
-
+PASSWORD_RESET_TOKEN_DURATION = env.int('PASSWORD_RESET_TOKEN_DURATION', default=300)  # type: ignore # en secondes, par défaut 5 minutes
+PASSWORD_RESET_TOKEN_DURATION = timedelta(seconds=PASSWORD_RESET_TOKEN_DURATION) # type: ignore
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'fr-FR'
 
 TIME_ZONE = 'UTC'
 

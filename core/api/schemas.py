@@ -1,6 +1,6 @@
 # core/api/schemas.py
 from ninja import Field, ModelSchema, Schema
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import EmailStr, field_validator
 from uuid import UUID
 from datetime import datetime
@@ -34,11 +34,17 @@ class RefreshTokenSchema(Schema):
     """Schéma pour rafraîchir le token"""
     refresh: str
 
+class PasswordResetRequest(Schema):
+    """Schéma pour la demande de réinitialisation de mot de passe"""
+    user_id: str = Field(..., description="Email ou numéro de téléphone de l'utilisateur")
+    method: Literal["email", "sms"] = Field("email", description="Méthode d'envoi du token (email ou sms)")
 
-class EmailSchema(Schema):
-    """Schéma simple pour les opérations basées sur l'email."""
-    email: str
-    
+class PasswordResetConfirm(Schema):
+    user_id: str = Field(..., description="Email ou numéro de téléphone de l'utilisateur")
+    token: str = Field(..., description="Token de réinitialisation reçu")
+    new_password: str = Field(..., description="Nouveau mot de passe souhaité")
+
+
 class PaginationMetaSchema(Schema):
     """Métadonnées de pagination"""
     page: int

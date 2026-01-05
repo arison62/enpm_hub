@@ -9,7 +9,7 @@ from .models import (
     AnneePromotion, Domaine, Filiere, SecteurActivite,
     Poste, Devise, TitreHonorifique, ReseauSocial
 )
-from core.models import User, AuditLog
+from core.models import User, AuditLog, PasswordResetToken
 from users.models import Profil, LienReseauSocialProfil, ExperienceProfessionnelle
 
 
@@ -316,6 +316,17 @@ def desactiver_elements(modeladmin, request, queryset):
         level='warning'
     )
 desactiver_elements.short_description = "❌ Désactiver les éléments sélectionnés"
+
+# =========================================
+# Mot de passe temporaire
+# =========================================
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'token', 'created_at', 'expires_at')
+    list_filter = ('created_at', 'expires_at')
+    search_fields = ('user__email', 'token')
+    ordering = ('-created_at',)
+
 
 
 # ==========================================

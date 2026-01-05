@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
 from core.utils.encoder import CountriesEncoder
+from datetime import datetime, timedelta
 
 from django.apps import apps
 
@@ -622,6 +623,34 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     def is_active(self):
         return self.est_actif and not self.deleted
 
+def get_password_reset_token_expiry():
+    """Retourne la date d'expiration par défaut pour les tokens de réinitialisation"""
+    return timezone.now() + timedelta(hours=1)
+
+class PasswordResetToken(ENSPMHubBaseModel):
+    """Modèle pour gérer les tokens de réinitialisation de mot de passe."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens',
+        verbose_name=_("Utilisateur")
+    )
+    token = models.CharField(max_length=6, unique=True, verbose_name=_("Token"))
+    expires_at = models.DateTimeField(default=get_password_reset_token_expiry, verbose_name=_("Date d'expiration"))
+    is_used = models.BooleanField(default=False, verbose_name=_("Utilisé"))
+
+    class Meta:
+        verbose_name = _("Token de réinitialisation de mot de passe")
+        verbose_name_plural = _("Tokens de réinitialisation de mot de passe")
+        db_table = 'password_reset_tokens'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Password reset token for {self.user.email}"
 
 
 
