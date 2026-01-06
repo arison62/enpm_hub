@@ -167,7 +167,7 @@ class ProfilCompleteOut(ProfilBaseOut):
 
 class ProfilCreate(Schema):
     """Schéma pour création Profil (champs requis/minimaux)"""
-    nom_complet: str = Field(..., description="Nom complet")
+    nom_complet: Optional[str] = Field(None, description="Nom complet")
     matricule: Optional[str] = None
     titre_id: Optional[UUID4] = None  # FK vers TitreHonorifique
     statut_global: str = 'etudiant'

@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
+from phonenumber_field.modelfields import PhoneNumberField
 from core.utils.encoder import CountriesEncoder
 from datetime import datetime, timedelta
 
@@ -50,7 +51,7 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_('Superuser must have is_superuser=True.'))
         user = self.create_user(email, password, **extra_fields)
         Profil = apps.get_model('users', 'Profil')
-        Profil.objects.create(user=user, nom_complet=extra_fields.get('nom_complet', 'Super Admin'))
+        Profil.objects.create(user=user)
         return user
        
 
@@ -510,7 +511,18 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
         ('super_admin', 'Super Administrateur'),
     ]
 
-    email = models.EmailField(unique=True, verbose_name=_("Adresse email"))
+    email = models.EmailField(
+        unique=True, 
+        null=True,
+        blank=True,
+        verbose_name=_("Adresse email")
+    )
+    telephone = PhoneNumberField(
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name=_("Numéro de téléphone")
+    )
     mot_de_passe = models.CharField(max_length=255, editable=False, null=True, blank=True)  # Django gère déjà le hash
     role_systeme = models.CharField(max_length=20, choices=ROLE_SYSTEME_CHOICES, default='user',
                                     verbose_name=_("Rôle système"))
@@ -550,6 +562,16 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     @property
     def is_active(self):
         return self.est_actif and not self.deleted
+    
+    def clean(self):
+        super().clean()
+        if not self.email and not self.telephone:
+            raise ValueError(_('L\'utilisateur doit avoir une adresse email ou un numéro de téléphone.'))
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Valide avant de sauvegarder
+        super().save(*args, **kwargs)
+
 
 def get_password_reset_token_expiry():
     """Retourne la date d'expiration par défaut pour les tokens de réinitialisation"""

@@ -208,7 +208,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # SÉCURITÉ & AUTHENTIFICATION
 AUTH_USER_MODEL = 'core.User'
 AUTHENTICATION_BACKENDS = [
-    'core.backends.EmailMatriculeAuthBackend',  # Notre backend personnalisé
+    'core.backends.EmailOrPhoneAuthBackend',  # Notre backend personnalisé
+    'django.contrib.auth.backends.ModelBackend', # Fallback au backend par défaut
 ]
 from django.utils.timezone import timedelta
 SIMPLE_JWT = {

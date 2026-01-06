@@ -61,7 +61,7 @@ class UserAdmin(BaseUserAdmin):
     Le Profil est géré via inline.
     """
     list_display = (
-        'email', 'role_systeme', 'est_actif_badge',
+        'email', 'role_systeme', 'est_actif_badge', 'telephone',
         'last_login', 'created_at', 'deleted_badge'
     )
     list_filter = (
@@ -79,7 +79,7 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (_('Informations de connexion'), {
-            'fields': ('email', 'password')
+            'fields': ('email', 'password', 'telephone')
         }),
         (_('Rôle et permissions'), {
             'fields': ('role_systeme', 'est_actif', 'is_staff', 'is_superuser'),

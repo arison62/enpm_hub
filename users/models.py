@@ -13,7 +13,7 @@ class Profil(ENSPMHubBaseModel):
         ('partenaire', 'Partenaire'),
     ]
     user = models.OneToOneField("core.User", on_delete=models.CASCADE, related_name='profil')
-    nom_complet = models.CharField(max_length=255, verbose_name=_("Nom complet"))
+    nom_complet = models.CharField(null=True, blank=True, max_length=255, verbose_name=_("Nom complet"))
     matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"), db_index=True)
     
     titre = models.ForeignKey(

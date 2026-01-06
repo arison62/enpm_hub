@@ -2,6 +2,7 @@
 from ninja import Field, ModelSchema, Schema
 from typing import Optional, List, Literal
 from pydantic import EmailStr, field_validator
+from phonenumber_field.phonenumber import PhoneNumber
 from uuid import UUID
 from datetime import datetime
 from core.models import (
@@ -59,11 +60,16 @@ class PaginationMetaSchema(Schema):
 class UserOut(ModelSchema):
     class Meta:
         model = User
-        fields = ['id', 'email', 'role_systeme', 'last_login', 'est_actif', 'is_staff', 'created_at', 'updated_at', 'deleted', 'deleted_at']
+        fields = ['id', 'email', 'role_systeme', 
+                  'last_login', 'est_actif', 'telephone', 
+                  'is_staff', 'created_at', 
+                  'updated_at', 'deleted', 'deleted_at'
+                ]
         # Excluded sensitive fields like mot_de_passe, groups, user_permissions
 
 class UserCreate(Schema):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    telephone: Optional[str] = None
     password: Optional[str] = None  # For create_user with or without password
     role_systeme: str = 'user'
     est_actif: bool = True
@@ -74,6 +80,16 @@ class UserCreate(Schema):
         if v not in [choice[0] for choice in User.ROLE_SYSTEME_CHOICES]:
             raise ValueError('Invalid role')
         return v
+    
+    @field_validator('telephone')
+    def validate_telephone(cls, v):
+        if v:
+            phone = PhoneNumber.from_string(v, region='CM')  # 'CM' pour Cameroun
+            if not phone.is_valid():
+                raise ValueError("Numéro de téléphone invalide")
+            return str(phone)
+        return v
+        
 
 class UserUpdate(ModelSchema):
     class Meta:

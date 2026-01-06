@@ -156,7 +156,7 @@ class AuthService:
         :return: None
         """
         try:
-            query = Q(email=user_id) | Q(profil__telephone=user_id)
+            query = Q(email=user_id) | Q(telephone=user_id)
             user = User.objects.get(query, est_actif=True, deleted=False)
             otp_token = f"{random.randint(100000, 999999)}"
             duration = settings.PASSWORD_RESET_TOKEN_DURATION or timezone.now() + timedelta(minutes=5) # Par défaut 5 minutes
@@ -167,8 +167,13 @@ class AuthService:
             sender = NotificationFactory.get_sender(method)
             if method == "email":
                 recipient = user.email
+            elif method == "sms":
+                recipient = user.telephone
             else:
-                recipient = user.profil.telephone  # type: ignore
+                raise ValueError("Méthode de notification invalide")
+            if not recipient:
+                raise ValueError("L'utilisateur n'a pas de moyen de contact valide pour cette méthode")
+            
             sender.send_otp(recipient=recipient, otp=otp_token)
             return True
         except User.DoesNotExist:
