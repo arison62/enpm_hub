@@ -127,7 +127,7 @@ INSTALLED_APPS = [
     "ninja",
     'django_countries',
     
-    "home",
+    "web",
     "core",
     "users",
     "organizations",

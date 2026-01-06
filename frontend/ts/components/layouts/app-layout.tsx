@@ -21,7 +21,7 @@ import { useAuthStore } from "@/stores/authStore";
 import BottomNavigationBarMobile from "../bottom-navigation-bar-mobile";
 import DesktopNavLinks from "@/components/desktop-nav-links";
 import GlobalSearch from "@/components/global-search";
-import { NavUser } from "@/components/user-nav";
+import { NavUser } from "@/components/nav-user";
 
 gsap.registerPlugin(useGSAP);
 

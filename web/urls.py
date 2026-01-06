@@ -7,10 +7,12 @@ from .views.chat import ChatView
 from .views.auth import LoginView
 from .views.profile import ProfileView
 from .views.auth import PasswordResetView
+from .views.admin import AdminView
 
 
 urlpatterns = [
     path('', index),
+    path('admin', AdminView.as_view(), name='admin'),
     path('home', HomeView.as_view(), name='home'),
     path('network', NetworkView.as_view(), name='network'),
     path('opportunities', OpportunitiesView.as_view(), name='opportunities'),

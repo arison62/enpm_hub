@@ -25,8 +25,8 @@ from core.views import maintenance, forbidden, not_found, server_error
 from .api_v1 import api_v1
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('home.urls')),
+    path('django-admin/', admin.site.urls),
+    path('', include('web.urls')),
     path('api/v1/', api_v1.urls),
     path('maintenace/',  maintenance, name='maintenance')
 ] + debug_toolbar_urls()
