@@ -110,7 +110,7 @@ class EmailService:
         Envoie un email via Resend de manière synchrone.
         """
         try:
-           
+            from_email = from_email or settings.DEFAULT_FROM_EMAIL
             
             context.update({
                 'site_name': getattr(settings, 'SITE_NAME', 'ENSPM Hub'),
@@ -132,6 +132,7 @@ class EmailService:
                     })
             
             params: resend.Emails.SendParams = {
+                "from": from_email, # type: ignore
                 "to": to_emails,
                 "subject": subject,
                 "html": html_content,
