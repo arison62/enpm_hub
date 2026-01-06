@@ -32,7 +32,7 @@ class EmailNotificationSender(BaseNotificationSender):
         :param recipient: L'adresse e-mail du destinataire.
         :param otp: Le code OTP à envoyer.
         """
-        EmailTemplates.send_password_reset_email(
+        EmailTemplates.resend_password_reset_email(
             user_email=recipient,
             user_name= recipient,
             otp_code=otp

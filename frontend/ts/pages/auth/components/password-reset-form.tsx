@@ -274,7 +274,7 @@ export default function PasswordResetForm() {
                           <Input
                             placeholder={
                               method === "email"
-                                ? "prenom.nom@enspm.cm"
+                                ? "ex: 1d5dA@example.com"
                                 : "6XXXXXXXX"
                             }
                             {...field}
