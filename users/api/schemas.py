@@ -10,7 +10,7 @@ from users.models import ExperienceProfessionnelle, Profil, LienReseauSocialProf
 from core.api.schemas import PaginationMetaSchema
 from core.api.schemas import (
     AnneePromotionSimple, DomaineSimple, TitreHonorifiqueSimple,
-    SecteurActiviteSimple, PosteSimple, DeviseSimple, ReseauSocialSimple
+    SecteurActiviteSimple, DeviseSimple, ReseauSocialSimple
 )
 
 # ==========================================

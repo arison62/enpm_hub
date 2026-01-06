@@ -7,7 +7,7 @@ from datetime import datetime
 from core.models import (
     User, AuditLog,
     AnneePromotion, Domaine, Filiere, SecteurActivite,
-    Poste, Devise, TitreHonorifique, ReseauSocial
+    Devise, TitreHonorifique, ReseauSocial
 )
 
 
@@ -157,22 +157,6 @@ class SecteurActiviteOut(ModelSchema):
         return obj.nom_complet
 
 
-class PosteOut(ModelSchema):
-    """Schéma de sortie pour Poste"""
-    secteur_id: Optional[UUID] = None
-    secteur_nom: Optional[str] = None
-    
-    class Meta:
-        model = Poste
-        fields = ['id', 'titre', 'categorie', 'niveau', 'synonymes', 'description', 'est_actif', 'ordre_affichage']
-    
-    @staticmethod
-    def resolve_secteur_id(obj):
-        return obj.secteur.id if obj.secteur else None
-    
-    @staticmethod
-    def resolve_secteur_nom(obj):
-        return obj.secteur.nom if obj.secteur else None
 
 
 class DeviseOut(ModelSchema):
@@ -232,12 +216,7 @@ class SecteurActiviteSimple(Schema):
     code: str
 
 
-class PosteSimple(Schema):
-    """Version simplifiée pour intégration dans MembreOrganisationOut"""
-    id: UUID
-    titre: str
-    categorie: str
-    niveau: Optional[str] = None
+
 
 
 class DeviseSimple(Schema):
@@ -306,7 +285,6 @@ class ReferencesAcademiquesOut(Schema):
 class ReferencesProfessionnellesOut(Schema):
     """Toutes les références professionnelles en un seul appel"""
     secteurs: List[SecteurActiviteOut]
-    postes: List[PosteOut]
 
 
 class ReferencesFinancieresOut(Schema):
@@ -328,7 +306,6 @@ class AllReferencesOut(Schema):
     domaines: List[DomaineOut]
     filieres: List[FiliereOut]
     secteurs: List[SecteurActiviteOut]
-    postes: List[PosteOut]
     devises: List[DeviseOut]
     titres: List[TitreHonorifiqueOut]
     reseaux: List[ReseauSocialOut]

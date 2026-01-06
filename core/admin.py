@@ -7,7 +7,7 @@ from django.utils.safestring import mark_safe
 from django.db.models import Count
 from .models import (
     AnneePromotion, Domaine, Filiere, SecteurActivite,
-    Poste, Devise, TitreHonorifique, ReseauSocial
+    Devise, TitreHonorifique, ReseauSocial
 )
 from core.models import User, AuditLog, PasswordResetToken
 from users.models import Profil, LienReseauSocialProfil, ExperienceProfessionnelle
@@ -589,92 +589,6 @@ class SecteurActiviteAdmin(admin.ModelAdmin):
             )
         return '0 org.'
     nombre_organisations.short_description = 'Organisations'
-
-
-# ==========================================
-# 5. POSTE
-# ==========================================
-
-@admin.register(Poste)
-class PosteAdmin(admin.ModelAdmin):
-    list_display = [
-        'titre',
-        'categorie',
-        'niveau_badge',
-        'secteur',
-        'nombre_membres',
-        'statut_badge',
-        'ordre_affichage'
-    ]
-    list_filter = ['categorie', 'niveau', 'secteur', 'est_actif', 'created_at']
-    search_fields = ['titre', 'categorie', 'description', 'synonymes']
-    ordering = ['categorie', 'ordre_affichage', 'titre']
-    actions = [activer_elements, desactiver_elements]
-    
-    fieldsets = (
-        ('Informations principales', {
-            'fields': ('titre', 'categorie', 'niveau', 'secteur', 'description')
-        }),
-        ('Synonymes et Variantes', {
-            'fields': ('synonymes',),
-            'description': 'Liste des variantes du titre (format JSON: ["Dev", "Développeur"])'
-        }),
-        ('Affichage', {
-            'fields': ('est_actif', 'ordre_affichage'),
-            'classes': ('collapse',)
-        }),
-        ('Métadonnées', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-    
-    readonly_fields = ['created_at', 'updated_at']
-    
-    def statut_badge(self, obj):
-        if obj.est_actif:
-            return format_html(
-                '<span style="background-color: #28a745; color: white; padding: 3px 10px; border-radius: 3px;">✓ Actif</span>'
-            )
-        return format_html(
-            '<span style="background-color: #dc3545; color: white; padding: 3px 10px; border-radius: 3px;">✗ Inactif</span>'
-        )
-    statut_badge.short_description = 'Statut'
-    
-    def niveau_badge(self, obj):
-        """Badge coloré pour le niveau"""
-        couleurs = {
-            'junior': '#17a2b8',
-            'intermediaire': '#ffc107',
-            'senior': '#28a745',
-            'lead': '#fd7e14',
-            'manager': '#6f42c1',
-            'directeur': '#e83e8c',
-            'vp': '#dc3545',
-            'c_level': '#343a40'
-        }
-        if obj.niveau:
-            couleur = couleurs.get(obj.niveau, '#6c757d')
-            return format_html(
-                '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px;">{}</span>',
-                couleur,
-                obj.get_niveau_display()
-            )
-        return '-'
-    niveau_badge.short_description = 'Niveau'
-    
-    def nombre_membres(self, obj):
-        """Nombre de membres ayant ce poste"""
-        count = obj.membres.count()
-        if count > 0:
-            return format_html(
-                '<a href="/admin/organizations/membreorganisation/?poste__id__exact={}">{} membre(s)</a>',
-                obj.id,
-                count
-            )
-        return '0 membre'
-    nombre_membres.short_description = 'Membres'
-
 
 # ==========================================
 # 6. DEVISE

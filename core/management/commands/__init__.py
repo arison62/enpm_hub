@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from core.models import (
     AnneePromotion, Domaine, Filiere, SecteurActivite,
-    Poste, Devise, TitreHonorifique, ReseauSocial
+    Devise, TitreHonorifique, ReseauSocial
 )
 
 
@@ -37,9 +37,6 @@ class Command(BaseCommand):
 
         if table == 'all' or table == 'secteurs':
             self.populate_secteurs_activite()
-
-        if table == 'all' or table == 'postes':
-            self.populate_postes()
 
         if table == 'all' or table == 'devises':
             self.populate_devises()
@@ -229,54 +226,6 @@ class Command(BaseCommand):
             )
         
         self.stdout.write(self.style.SUCCESS('  ✓ Secteurs d\'activité créés'))
-
-    @transaction.atomic
-    def populate_postes(self):
-        """Remplit les postes standardisés"""
-        self.stdout.write('💼 Remplissage des postes...')
-        
-        tech_secteur = SecteurActivite.objects.get(code='TECH')
-        
-        postes_data = [
-            # Postes techniques
-            {'titre': 'Développeur Full Stack', 'categorie': 'Technique', 'niveau': 'intermediaire', 'secteur': tech_secteur},
-            {'titre': 'Développeur Frontend', 'categorie': 'Technique', 'niveau': 'junior', 'secteur': tech_secteur},
-            {'titre': 'Développeur Backend', 'categorie': 'Technique', 'niveau': 'junior', 'secteur': tech_secteur},
-            {'titre': 'Ingénieur DevOps', 'categorie': 'Technique', 'niveau': 'senior', 'secteur': tech_secteur},
-            {'titre': 'Data Scientist', 'categorie': 'Technique', 'niveau': 'senior', 'secteur': tech_secteur},
-            {'titre': 'Architecte Logiciel', 'categorie': 'Technique', 'niveau': 'senior', 'secteur': tech_secteur},
-            
-            # Postes management
-            {'titre': 'Chef de Projet', 'categorie': 'Management', 'niveau': 'manager', 'secteur': None},
-            {'titre': 'Directeur Technique (CTO)', 'categorie': 'Management', 'niveau': 'c_level', 'secteur': tech_secteur},
-            {'titre': 'Team Lead', 'categorie': 'Management', 'niveau': 'lead', 'secteur': None},
-            
-            # Postes généraux
-            {'titre': 'Ingénieur Civil', 'categorie': 'Technique', 'niveau': 'intermediaire', 'secteur': None},
-            {'titre': 'Consultant', 'categorie': 'Conseil', 'niveau': 'senior', 'secteur': None},
-            {'titre': 'Chargé de Ressources Humaines', 'categorie': 'RH', 'niveau': 'intermediaire', 'secteur': None},
-            {'titre': 'Responsable Marketing', 'categorie': 'Marketing', 'niveau': 'manager', 'secteur': None},
-            {'titre': 'Comptable', 'categorie': 'Finance', 'niveau': 'intermediaire', 'secteur': None},
-        ]
-        
-        for idx, data in enumerate(postes_data, 1):
-            synonymes = []
-            if 'Développeur' in data['titre']:
-                synonymes = ['Dev', 'Developer', 'Programmeur']
-            
-            Poste.objects.get_or_create(
-                titre=data['titre'],
-                defaults={
-                    'categorie': data['categorie'],
-                    'niveau': data['niveau'],
-                    'secteur': data['secteur'],
-                    'synonymes': synonymes,
-                    'est_actif': True,
-                    'ordre_affichage': idx
-                }
-            )
-        
-        self.stdout.write(self.style.SUCCESS(f'  ✓ {len(postes_data)} postes créés'))
 
     @transaction.atomic
     def populate_devises(self):

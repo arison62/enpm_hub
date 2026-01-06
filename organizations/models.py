@@ -106,14 +106,6 @@ class MembreOrganisation(ENSPMHubBaseModel):
         default='employe',
         verbose_name=_("Rôle dans l'organisation")
     )
-    poste = models.ForeignKey(
-        'core.Poste',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='membres',
-        verbose_name=_("Poste")
-    )
     est_actif = models.BooleanField(default=True, verbose_name=_("Membre actif"))
     date_joindre = models.DateField(auto_now_add=True, verbose_name=_("Date d'adhésion"))
     

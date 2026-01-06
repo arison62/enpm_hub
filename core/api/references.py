@@ -11,7 +11,7 @@ from pydantic import UUID4
 
 from .schemas import (
     AnneePromotionOut, CountrieOut, DomaineOut, DomaineComplete, FiliereOut,
-    SecteurActiviteOut, SecteurActiviteComplete, PosteOut,
+    SecteurActiviteOut, SecteurActiviteComplete,
     DeviseOut, TitreHonorifiqueOut, ReseauSocialOut,
     ReferencesAcademiquesOut, ReferencesProfessionnellesOut,
     ReferencesFinancieresOut, ReferencesReseauxOut,
@@ -141,28 +141,6 @@ def get_secteur_detail(request: HttpRequest, secteur_id: UUID4):
 
 
 @references_router.get(
-    "/postes",
-    response={200: List[PosteOut]},
-    summary="Liste des postes",
-    description="Récupère tous les postes actifs"
-)
-def get_postes(request: HttpRequest, categorie: Optional[str] = None):
-    """
-    Récupère la liste des postes.
-    
-    Params:
-        categorie: Filtre optionnel par catégorie (Technique, Management, etc.)
-    
-    Utilisé dans les formulaires de membre d'organisation.
-    """
-    if categorie:
-        postes = reference_service.get_postes_by_categorie(categorie, actifs_only=True)
-    else:
-        postes = reference_service.get_all_postes(actifs_only=True)
-    return 200, postes
-
-
-@references_router.get(
     "/devises",
     response={200: List[DeviseOut]},
     summary="Liste des devises",
@@ -256,7 +234,6 @@ def get_references_professionnelles(request: HttpRequest):
     """
     return 200, {
         "secteurs": reference_service.get_all_secteurs(actifs_only=True),
-        "postes": reference_service.get_all_postes(actifs_only=True),
     }
 
 
@@ -320,7 +297,6 @@ def get_all_references(request: HttpRequest):
         "domaines": reference_service.get_all_domaines(actifs_only=True),
         "filieres": reference_service.get_all_filieres(actives_only=True),
         "secteurs": reference_service.get_all_secteurs(actifs_only=True),
-        "postes": reference_service.get_all_postes(actifs_only=True),
         "devises": reference_service.get_all_devises(actives_only=True),
         "titres": reference_service.get_all_titres(actifs_only=True),
         "reseaux": reference_service.get_all_reseaux(actifs_only=True),

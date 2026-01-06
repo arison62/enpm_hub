@@ -6,7 +6,7 @@ from ninja import ModelSchema
 from typing import Optional, List
 from datetime import date, datetime
 from pydantic import UUID4, EmailStr
-from core.api.schemas import PosteSimple, SecteurActiviteSimple
+from core.api.schemas import SecteurActiviteSimple
 from users.api.schemas import ProfilBaseOut, PaginationMetaSchema, ProfilCreate
 from organizations.models import Organisation, MembreOrganisation, AbonnementOrganisation
 
@@ -156,7 +156,6 @@ class OrganisationGlobalStats(Schema):
 
 class MembreOrganisationOut(ModelSchema):
     """Schéma de sortie pour un membre"""
-    poste: Optional[PosteSimple] = None
     profil_nom: str
     organisation_nom: str
 
@@ -167,18 +166,6 @@ class MembreOrganisationOut(ModelSchema):
             'date_joindre', 'created_at'
         ]
 
-    @staticmethod
-    def resolve_poste(obj):
-        """Retourne l'objet Poste complet"""
-        if obj.poste:
-            return {
-                "id": obj.poste.id,
-                "titre": obj.poste.titre,
-                "categorie": obj.poste.categorie,
-                "niveau": obj.poste.niveau
-            }
-        return None
-    
     @staticmethod
     def resolve_profil_nom(obj):
         return obj.profil.nom_complet

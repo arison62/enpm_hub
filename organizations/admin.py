@@ -11,7 +11,7 @@ from organizations.models import Organisation, MembreOrganisation, AbonnementOrg
 class MembreOrganisationInline(admin.TabularInline):
     model = MembreOrganisation
     extra = 1
-    fields = ('profil', 'role_organisation', 'poste', 'est_actif')
+    fields = ('profil', 'role_organisation', 'est_actif')
     readonly_fields = ('date_joindre',)
     verbose_name_plural = _('Membres de l\'organisation')
 
@@ -131,16 +131,16 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
     """
     list_display = (
         'profil_link', 'organisation_link', 'role_organisation_badge',
-        'poste', 'est_actif_badge', 'date_joindre'
+        'est_actif_badge', 'date_joindre'
     )
     list_filter = ('role_organisation', 'est_actif', 'date_joindre')
-    search_fields = ('profil__nom_complet', 'organisation__nom_organisation', 'poste__nom')
+    search_fields = ('profil__nom_complet', 'organisation__nom_organisation')
     ordering = ('-date_joindre',)
     list_per_page = 50
 
     fieldsets = (
         (_('Informations principales'), {
-            'fields': ('profil', 'organisation', 'role_organisation', 'poste')
+            'fields': ('profil', 'organisation', 'role_organisation')
         }),
         (_('Statut'), {
             'fields': ('est_actif',)
@@ -191,7 +191,7 @@ class MembreOrganisationAdmin(admin.ModelAdmin):
         return obj.est_actif
 
     def get_queryset(self, request):
-        return MembreOrganisation.all_objects.select_related('profil', 'organisation', 'poste').all()
+        return MembreOrganisation.all_objects.select_related('profil', 'organisation').all()
 
 # ==========================================
 # 4. ADMIN ABONNEMENT ORGANISATION

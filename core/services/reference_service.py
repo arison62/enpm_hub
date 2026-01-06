@@ -9,7 +9,7 @@ from uuid import UUID
 from django.core.cache import cache
 from core.models import (
     AnneePromotion, Domaine, Filiere, SecteurActivite,
-    Poste, Devise, TitreHonorifique, ReseauSocial
+    Devise, TitreHonorifique, ReseauSocial
 )
 
 logger = logging.getLogger(__name__)
@@ -180,36 +180,6 @@ class ReferenceService:
         except SecteurActivite.DoesNotExist:
             logger.warning(f"Secteur non trouvé: {secteur_id}")
             return None
-    
-    # ==========================================
-    # POSTES
-    # ==========================================
-    
-    @staticmethod
-    def get_all_postes(actifs_only: bool = True) -> List[Poste]:
-        """Récupère tous les postes"""
-        cache_key = f"postes_{'actifs' if actifs_only else 'all'}"
-        
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return cached_data
-        
-        queryset = Poste.objects.select_related('secteur')
-        if actifs_only:
-            queryset = queryset.filter(est_actif=True)
-        
-        result = list(queryset.order_by('categorie', 'ordre_affichage', 'titre'))
-        cache.set(cache_key, result, ReferenceService.CACHE_TIMEOUT)
-        
-        return result
-    
-    @staticmethod
-    def get_postes_by_categorie(categorie: str, actifs_only: bool = True) -> List[Poste]:
-        """Récupère les postes par catégorie"""
-        queryset = Poste.objects.filter(categorie=categorie)
-        if actifs_only:
-            queryset = queryset.filter(est_actif=True)
-        return list(queryset.order_by('ordre_affichage', 'titre'))
     
     # ==========================================
     # DEVISES
