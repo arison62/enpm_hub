@@ -284,7 +284,6 @@ class ReferenceService:
             'domaines_actifs', 'domaines_all',
             'filieres_actives', 'filieres_all',
             'secteurs_actifs_all', 'secteurs_all_all', 'secteurs_actifs_parents',
-            'postes_actifs', 'postes_all',
             'devises_actives', 'devises_all',
             'titres_actifs', 'titres_all',
             'reseaux_actifs', 'reseaux_all',

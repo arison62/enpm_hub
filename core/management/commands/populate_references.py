@@ -19,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--table',
             type=str,
-            help='Remplir une table spécifique (all, annees, domaines, filieres, secteurs, postes, devises, titres, reseaux)',
+            help='Remplir une table spécifique (all, annees, domaines, filieres, secteurs, devises, titres, reseaux)',
             default='all'
         )
 
@@ -37,9 +37,6 @@ class Command(BaseCommand):
 
         if table == 'all' or table == 'secteurs':
             self.populate_secteurs_activite()
-
-        if table == 'all' or table == 'postes':
-            self.populate_postes()
 
         if table == 'all' or table == 'devises':
             self.populate_devises()
