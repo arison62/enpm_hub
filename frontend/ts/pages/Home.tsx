@@ -12,7 +12,7 @@ export default function Home() {
         <Button className="mt-6">
          <Link to="/home">
           Get Started
-         <Link/>
+         </Link>
         </Button>
       </div>
     </div>
