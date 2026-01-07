@@ -10,7 +10,7 @@ export default function Home() {
       </p>
       <div>
         <Button className="mt-6">
-         <Link to="/home">
+         <Link href="/home">
           Get Started
          </Link>
         </Button>
