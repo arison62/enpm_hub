@@ -1,3 +1,78 @@
+
+# ================================
+# App: chat
+# ================================\n
+from django.db import models
+from core.models import ENSPMHubBaseModel
+
+
+# ==========================================
+# 8. GROUPES & MESSAGERIE
+# ==========================================
+class Groupe(ENSPMHubBaseModel):
+    TYPE_GROUPE_CHOICES = [
+        ('public', 'Public'),
+        ('prive', 'Privé'), 
+        ('administratif', 'Administratif')
+    ]
+
+    createur_profil = models.ForeignKey('users.Profil', on_delete=models.SET_NULL, null=True, related_name='groupes_crees')
+    nom_groupe = models.CharField(max_length=150, unique=True)
+    photo_groupe = models.ImageField(upload_to="photos_groups/", null=True, blank=True)
+    description = models.TextField()
+    est_valide = models.BooleanField(default=False)
+    type_groupe = models.CharField(max_length=20, choices=TYPE_GROUPE_CHOICES, default='prive')
+    max_membres = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'groupe'
+
+
+class MembreGroupe(ENSPMHubBaseModel):
+    ROLE_MEMBRE_CHOICES = [('membre', 'Membre'), ('moderateur', 'Modérateur'), ('admin', 'Admin')]
+
+    profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
+    groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='membres')
+    role_membre = models.CharField(max_length=20, choices=ROLE_MEMBRE_CHOICES, default='membre')
+    date_adhesion = models.DateTimeField(auto_now_add=True)
+    date_sortie = models.DateTimeField(null=True, blank=True)
+    est_actif = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'membre_groupe'
+        unique_together = ('profil', 'groupe')
+
+
+class Message(ENSPMHubBaseModel):
+    TYPE_FICHIER_CHOICES = [
+        ('image', 'Image'), ('pdf', 'PDF'), ('word', 'Word'), ('excel', 'Excel'),
+        ('powerpoint', 'PowerPoint'), ('video', 'Vidéo')
+    ]
+
+    groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='messages')
+    profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
+    texte = models.TextField(null=True, blank=True)
+    fichier= models.FileField(upload_to="messages_fichier/", null=True, blank=True)
+    type_fichier = models.CharField(max_length=20, choices=TYPE_FICHIER_CHOICES, null=True, blank=True)
+    est_supprime = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'message'
+        ordering = ['created_at']
+
+
+class ValidationGroupe(ENSPMHubBaseModel):
+    groupe = models.ForeignKey(Groupe, on_delete=models.CASCADE, related_name='validations')
+    validateur_profil = models.ForeignKey('users.Profil', on_delete=models.CASCADE)
+    est_approuve = models.BooleanField()
+    commentaire = models.TextField(null=True, blank=True)
+    date_validation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'validation_groupe'
+# ================================
+# App: core
+# ================================\n
 # core/models.py
 import uuid
 from django.db import models
@@ -5,6 +80,9 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
+from phonenumber_field.modelfields import PhoneNumberField
+from core.utils.encoder import CountriesEncoder
+from datetime import datetime, timedelta
 
 from django.apps import apps
 
@@ -48,7 +126,7 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_('Superuser must have is_superuser=True.'))
         user = self.create_user(email, password, **extra_fields)
         Profil = apps.get_model('users', 'Profil')
-        Profil.objects.create(user=user, nom_complet=extra_fields.get('nom_complet', 'Super Admin'))
+        Profil.objects.create(user=user)
         return user
        
 
@@ -310,6 +388,7 @@ class SecteurActivite(ENSPMHubBaseModel):
             return f"{self.categorie_parent.nom_complet} > {self.nom}"
         return self.nom
 
+
 # ==========================================
 # 3. RÉFÉRENCES FINANCIÈRES
 # ==========================================
@@ -457,16 +536,6 @@ class ReseauSocial(ENSPMHubBaseModel):
         verbose_name=_("URL de base"),
         help_text=_("https://linkedin.com/in/, https://github.com/")
     )
-    icone = models.CharField(
-        max_length=50,
-        verbose_name=_("Icône"),
-        help_text=_("Classe Font Awesome: fab fa-linkedin")
-    )
-    couleur_brand = models.CharField(
-        max_length=7,
-        verbose_name=_("Couleur de marque"),
-        help_text=_("Code hexadécimal: #0077B5 pour LinkedIn")
-    )
     type_reseau = models.CharField(
         max_length=20,
         choices=TYPE_RESEAU_CHOICES,
@@ -517,7 +586,18 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
         ('super_admin', 'Super Administrateur'),
     ]
 
-    email = models.EmailField(unique=True, verbose_name=_("Adresse email"))
+    email = models.EmailField(
+        unique=True, 
+        null=True,
+        blank=True,
+        verbose_name=_("Adresse email")
+    )
+    telephone = PhoneNumberField(
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name=_("Numéro de téléphone")
+    )
     mot_de_passe = models.CharField(max_length=255, editable=False, null=True, blank=True)  # Django gère déjà le hash
     role_systeme = models.CharField(max_length=20, choices=ROLE_SYSTEME_CHOICES, default='user',
                                     verbose_name=_("Rôle système"))
@@ -557,7 +637,45 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
     @property
     def is_active(self):
         return self.est_actif and not self.deleted
+    
+    def clean(self):
+        super().clean()
+        if not self.email and not self.telephone:
+            raise ValueError(_('L\'utilisateur doit avoir une adresse email ou un numéro de téléphone.'))
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Valide avant de sauvegarder
+        super().save(*args, **kwargs)
 
+
+def get_password_reset_token_expiry():
+    """Retourne la date d'expiration par défaut pour les tokens de réinitialisation"""
+    return timezone.now() + timedelta(hours=1)
+
+class PasswordResetToken(ENSPMHubBaseModel):
+    """Modèle pour gérer les tokens de réinitialisation de mot de passe."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens',
+        verbose_name=_("Utilisateur")
+    )
+    token = models.CharField(max_length=6, unique=True, verbose_name=_("Token"))
+    expires_at = models.DateTimeField(default=get_password_reset_token_expiry, verbose_name=_("Date d'expiration"))
+    is_used = models.BooleanField(default=False, verbose_name=_("Utilisé"))
+
+    class Meta:
+        verbose_name = _("Token de réinitialisation de mot de passe")
+        verbose_name_plural = _("Tokens de réinitialisation de mot de passe")
+        db_table = 'password_reset_tokens'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Password reset token for {self.user.email}"
 
 
 
@@ -597,12 +715,14 @@ class AuditLog(ENSPMHubBaseModel):
     old_values = models.JSONField(
         null=True,
         blank=True,
-        verbose_name=_('Anciennes valeurs')
+        verbose_name=_('Anciennes valeurs'),
+        encoder=CountriesEncoder
     )
     new_values = models.JSONField(
         null=True,
         blank=True,
-        verbose_name=_('Nouvelles valeurs')
+        verbose_name=_('Nouvelles valeurs'),
+        encoder=CountriesEncoder
     )
 
     # Informations de connexion
@@ -625,102 +745,65 @@ class AuditLog(ENSPMHubBaseModel):
     def __str__(self):
         return f"{self.user} - {self.action} on {self.entity_type} "
 
+# ================================
+# App: feeds
+# ================================\n
+# feeds/models.py
 
-# users/models.py
 from django.db import models
 from core.models import ENSPMHubBaseModel
 from django.utils.translation import gettext_lazy as _
-from django_countries.fields import CountryField
 
-class Profil(ENSPMHubBaseModel):
-    STATUT_GLOBAL_CHOICES = [
-        ('etudiant', 'Étudiant'),
-        ('alumni', 'Alumni'),
-        ('enseignant', 'Enseignant'),
-        ('personnel_admin', 'Personnel Administratif'),
-        ('personnel_technique', 'Personnel Technique'),
-        ('partenaire', 'Partenaire'),
-    ]
-    user = models.OneToOneField("core.User", on_delete=models.CASCADE, related_name='profil')
-    nom_complet = models.CharField(max_length=255, verbose_name=_("Nom complet"))
-    matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"), db_index=True)
-    
-    titre = models.ForeignKey(
-        'core.TitreHonorifique',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='profils',
-        verbose_name=_("Titre")
-    )
-    
-    statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
-    travailleur = models.BooleanField(default=False, verbose_name=_("Travailleur"))
-    
-    annee_sortie = models.ForeignKey(
-        'core.AnneePromotion',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='profils',
-        verbose_name=_("Promotion")
-    )
-    
-    adresse = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Adresse"))
-    telephone = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
-    
-    ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
-    
-    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
-    
-    photo_profil = models.ImageField(upload_to='photos_profils/', null=True, blank=True, verbose_name=_("Photo de profil"))
-    
-    domaine = models.ForeignKey(
-        'core.Domaine',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='profils',
-        verbose_name=_("Domaine")
-    )
-    
-    bio = models.TextField(null=True, blank=True, verbose_name=_("Bio"))
-    slug = models.SlugField(unique=True, null=True, blank=True, verbose_name=_("Slug"), db_index=True)
+
+# ==========================================
+# 6. FLUX D'ACTUALITÉ
+# ==========================================
+class Post(ENSPMHubBaseModel):
+    contenu = models.TextField()
+    image = models.ImageField(upload_to='posts_images/', null=True, blank=True)
+    auteur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL,
+                                      related_name='posts')
+    auteur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL,
+                                            related_name='posts')
+    nombre_likes = models.PositiveIntegerField(default=0)
 
     class Meta:
-        verbose_name = _("Profil")
-        db_table = 'profil'
+        verbose_name = _("Post")
+        db_table = 'post'
 
     def __str__(self):
-        return self.nom_complet or self.user.email
-    
-class LienReseauSocialProfil(ENSPMHubBaseModel):
-    profil = models.ForeignKey(Profil, on_delete=models.CASCADE, related_name='liens_reseaux')
-    
-    reseau = models.ForeignKey(
-        'core.ReseauSocial',
-        on_delete=models.CASCADE,
-        related_name='liens',
-        verbose_name=_("Réseau social")
-    )
-    
-    url = models.URLField(verbose_name=_("URL"))
-    est_actif = models.BooleanField(default=True)
+        return f"Post par {self.auteur_profil or self.auteur_organisation}"
+
+
+class Commentaire(ENSPMHubBaseModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='commentaires')
+    contenu = models.TextField()
+    auteur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL)
+    auteur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
-        verbose_name = _("Lien réseau social utilisateur")
-        db_table = 'lien_reseau_social_profil'
-        indexes = [
-            models.Index(fields=['nom_complet']),
-            models.Index(fields=['statut_global', '-created_at']),
-            models.Index(fields=['domaine', 'annee_sortie']),
-        ]
-      
-
-    def __str__(self):
-        return f"{self.reseau.nom} - {self.profil.nom_complet}"
+        verbose_name = _("Commentaire")
+        db_table = 'commentaire'
 
 
+class Evenement(ENSPMHubBaseModel):
+    titre = models.CharField(max_length=255)
+    description = models.TextField()
+    lieu = models.CharField(max_length=255, null=True, blank=True)
+    date_debut = models.DateTimeField()
+    date_fin = models.DateTimeField(null=True, blank=True)
+    lien_inscription = models.URLField(null=True, blank=True)
+    organisateur_profil = models.ForeignKey('users.Profil', null=True, blank=True, on_delete=models.SET_NULL,
+                                            related_name='evenements_organises')
+    organisateur_organisation = models.ForeignKey('organizations.Organisation', null=True, blank=True, on_delete=models.SET_NULL,
+                                                  related_name='evenements_organises')
+
+    class Meta:
+        verbose_name = _("Événement")
+        db_table = 'evenement'
+# ================================
+# App: opportunities
+# ================================\n
 # opportunities/models.py
 from django.db import models
 from core.models import ENSPMHubBaseModel
@@ -1057,7 +1140,12 @@ class Formation(ENSPMHubBaseModel):
     def __str__(self):
         return self.titre
     
+ 
     
+
+# ================================
+# App: organizations
+# ================================\n
 # organizations/models.py
 from django.db import models
 from core.models import ENSPMHubBaseModel
@@ -1209,5 +1297,180 @@ class AbonnementOrganisation(ENSPMHubBaseModel):
         return f"{self.profil} suit {self.organisation}"
 
 
- 
+# ================================
+# App: stats
+# ================================\n
+from django.db import models
+
+# Create your models here.
+
+# ================================
+# App: users
+# ================================\n
+# users/models.py
+from django.db import models
+from core.models import ENSPMHubBaseModel
+from django.utils.translation import gettext_lazy as _
+from django_countries.fields import CountryField
+
+class Profil(ENSPMHubBaseModel):
+    STATUT_GLOBAL_CHOICES = [
+        ('etudiant', 'Étudiant'),
+        ('alumni', 'Alumni'),
+        ('enseignant', 'Enseignant'),
+        ('personnel_admin', 'Personnel Administratif'),
+        ('partenaire', 'Partenaire'),
+    ]
+    user = models.OneToOneField("core.User", on_delete=models.CASCADE, related_name='profil')
+    nom_complet = models.CharField(null=True, blank=True, max_length=255, verbose_name=_("Nom complet"))
+    matricule = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name=_("Matricule"), db_index=True)
     
+    titre = models.ForeignKey(
+        'core.TitreHonorifique',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='profils',
+        verbose_name=_("Titre")
+    )
+    
+    statut_global = models.CharField(max_length=30, choices=STATUT_GLOBAL_CHOICES, verbose_name=_("Statut global"))
+    annee_sortie = models.ForeignKey(
+        'core.AnneePromotion',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='profils',
+        verbose_name=_("Promotion")
+    )
+    
+    adresse = models.CharField(max_length=255, null=True, blank=True, verbose_name=_("Adresse"))
+    telephone = models.CharField(max_length=20, null=True, blank=True, verbose_name=_("Téléphone"))
+    
+    ville = models.CharField(max_length=100, null=True, blank=True, verbose_name=_("Ville"))
+    
+    pays = CountryField(null=True, blank=True, verbose_name=_("Pays"))
+    
+    photo_profil = models.ImageField(upload_to='photos_profils/', null=True, blank=True, verbose_name=_("Photo de profil"))
+    
+    domaine = models.ForeignKey(
+        'core.Domaine',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='profils',
+        verbose_name=_("Domaine")
+    )
+    
+    bio = models.TextField(null=True, blank=True, verbose_name=_("Bio"))
+    slug = models.SlugField(unique=True, null=True, blank=True, verbose_name=_("Slug"), db_index=True)
+
+    class Meta:
+        verbose_name = _("Profil")
+        db_table = 'profil'
+
+    def __str__(self):
+        return self.nom_complet or self.user.email
+ 
+class ExperienceProfessionnelle(ENSPMHubBaseModel):
+    """
+    Représente une étape du parcours professionnel d'un membre.
+    """
+    profil = models.ForeignKey(
+        'users.Profil', 
+        on_delete=models.CASCADE, 
+        related_name='experiences',
+        verbose_name=_("Profil")
+    )
+    
+    # Champs descriptifs libres
+    titre_poste = models.CharField(
+        max_length=255, 
+        verbose_name=_("Titre du poste"),
+        help_text=_("Ex: Ingénieur Logiciel, Consultant, Directeur Technique...")
+    )
+    nom_entreprise = models.CharField(
+        max_length=255, 
+        verbose_name=_("Entreprise ou Organisation")
+    )
+    lieu = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        verbose_name=_("Lieu (Ville, Pays ou Distanciel)")
+    )
+    
+    # Chronologie
+    date_debut = models.DateField(verbose_name=_("Date de début"))
+    date_fin = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name=_("Date de fin"),
+        help_text=_("Laissez vide si vous occupez toujours ce poste")
+    )
+    est_poste_actuel = models.BooleanField(
+        default=False, 
+        verbose_name=_("Poste actuel")
+    )
+    
+    # Contenu riche
+    description = models.TextField(
+        null=True, 
+        blank=True, 
+        verbose_name=_("Missions et réalisations")
+    )
+    
+    # Lien optionnel vers le module Partenaires
+    organisation = models.ForeignKey(
+        'organizations.Organisation', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='experiences_liees',
+        verbose_name=_("Lien avec une organisation du Hub")
+    )
+
+    class Meta:
+        verbose_name = _("Expérience Professionnelle")
+        db_table = 'experience_professionnelle'
+        ordering = ['-date_debut']
+        indexes = [
+            models.Index(fields=['profil', '-date_debut']),
+            models.Index(fields=['est_poste_actuel']),
+        ]
+
+    def __str__(self):
+        return f"{self.titre_poste} @ {self.nom_entreprise}"
+
+    def save(self, *args, **kwargs):
+        # Logique métier simple : si date_fin est nulle, c'est probablement un poste actuel
+        if not self.date_fin:
+            self.est_poste_actuel = True
+        super().save(*args, **kwargs) 
+    
+class LienReseauSocialProfil(ENSPMHubBaseModel):
+    profil = models.ForeignKey(Profil, on_delete=models.CASCADE, related_name='liens_reseaux')
+    
+    reseau = models.ForeignKey(
+        'core.ReseauSocial',
+        on_delete=models.CASCADE,
+        related_name='liens',
+        verbose_name=_("Réseau social")
+    )
+    
+    url = models.URLField(verbose_name=_("URL"))
+    est_actif = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = _("Lien de résseau social")
+        db_table = 'lien_reseau_social_profil'
+
+    def __str__(self):
+        return f"{self.reseau.nom} - {self.profil.nom_complet}"
+
+# ================================
+# App: web
+# ================================\n
+from django.db import models
+
+# Create your models here.

@@ -58,6 +58,7 @@ class PaginationMetaSchema(Schema):
 # ==========================================
 
 class UserOut(ModelSchema):
+    telephone: Optional[str] = None
     class Meta:
         model = User
         fields = ['id', 'email', 'role_systeme', 
@@ -67,6 +68,10 @@ class UserOut(ModelSchema):
                 ]
         # Excluded sensitive fields like mot_de_passe, groups, user_permissions
 
+    @staticmethod
+    def resolve_telephone(obj):
+        return str(obj.telephone) if obj.telephone else None
+    
 class UserCreate(Schema):
     email: Optional[EmailStr] = None
     telephone: Optional[str] = None

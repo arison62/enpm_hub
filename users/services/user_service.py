@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from typing import List, Literal, Optional
 from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password
 from django.utils.crypto import get_random_string
@@ -42,9 +42,6 @@ class UserService:
             raise ValueError(f"Un utilisateur avec l'email {user_data.get('email')} existe déjà.")
 
         profil_data = user_data.pop('profil', {})
-        if not profil_data.get('nom_complet'):
-            raise ValueError("Le nom complet est requis pour la création du profil.")
-
         random_password = get_random_string(12)
         user_data['password'] = make_password(random_password)
 
@@ -79,6 +76,7 @@ class UserService:
             new_values=audit_data
         )
         return new_user
+    
     @staticmethod
     @transaction.atomic
     def update_user(acting_user: User, user_to_update: User, data_update: dict, request=None) -> User:
@@ -500,7 +498,6 @@ class UserService:
         )
     
     
-     
     # ==========================================
     # GESTION DU MOT DE PASSE
     # ==========================================
@@ -702,6 +699,123 @@ class UserService:
             'by_status': stats_by_status,
         }
 
+
+    # ==========================================
+    # Bulk Operations
+    # ==========================================
+    @staticmethod
+    def bulk_create_users(
+        acting_user: User,
+        users_data: list[dict],
+        request=None,
+        mode: Literal['strict', 'skip'] = 'strict',
+        batch_size: int = 100
+    ) -> dict[str, List]:
+        """
+        Crée plusieurs utilisateurs en une seule opération.
+        
+        Args:
+            acting_user: Administrateur effectuant l'action
+            users_data: Liste de dictionnaires avec les données des utilisateurs
+            request: Objet request pour l'audit
+            mode: 'strict' pour arrêter à la première erreur, 
+                  'skip' pour ignorer les erreurs et continuer
+        Returns:
+            - created_users: Liste des utilisateurs créés
+            - errors: Liste des erreurs (index dans users_data et message), vide si mode 'strict'
+        """
+        created_users = []
+        errors = []
+        with transaction.atomic():
+            user_objects = []
+            profil_objects = []
+            audit_batch = []  # Pour logger en batch
+            
+            for idx, data in enumerate(users_data):
+                try:
+                    profil_data = data.pop('profil', {})
+                    user_data = data
+                    
+
+                    # Génération password si absent
+                    if 'password' not in user_data:
+                        random_password = get_random_string(12)
+                        user_data['password'] = make_password(random_password)
+                    else:
+                        user_data['password'] = make_password(user_data['password'])
+                    
+                    # Set is_staff si role admin
+                    if user_data.get('role_systeme') in ['admin_site', 'super_admin']:
+                        user_data['is_staff'] = True
+                    
+                    # Vérification email unique (avant création pour éviter bulk fail)
+                    if User.objects.filter(email=user_data.get('email')).exists():
+                        raise ValueError(f"Un utilisateur avec l'email {user_data.get('email')} existe déjà.")
+                    
+                    # Créer objet User (pas encore save)
+                    new_user = User(**user_data)
+                    user_objects.append(new_user)
+                    
+                    # Générer slug unique avec retries
+                    success = False
+                    for attempt in range(3):
+                        try:
+                            profil_data['slug'] = UserService.generate_unique_slug(profil_data.get('nom_complet'))
+                            # Vérifier unicité slug avant ajout
+                            if Profil.objects.filter(slug=profil_data['slug']).exists():
+                                continue
+                            new_profil = Profil(user=new_user, **profil_data)
+                            profil_objects.append(new_profil)
+                            success = True
+                            break
+                        except IntegrityError:
+                            continue
+                    
+                    if not success:
+                        raise ValueError("Impossible de générer un identifiant unique après plusieurs tentatives.")
+                    
+                    # Préparer audit data
+                    audit_data = {**user_data, 'profil': profil_data}
+                    audit_data.pop('password', None)
+                    audit_batch.append(audit_data)
+                    
+                except Exception as e:
+                    error_msg = f"Erreur à l'index {idx}: {str(e)}"
+                    if mode == 'skip':
+                        logger.error(error_msg)
+                        errors.append({'index': idx, 'error': str(e)})
+                        continue
+                    else:
+                        raise ValueError(error_msg)
+            
+            # Bulk create Users
+            if user_objects:
+                User.objects.bulk_create(user_objects, batch_size=batch_size)
+                
+                # Bulk create Profils
+                Profil.objects.bulk_create(profil_objects, batch_size=batch_size)
+                
+                # Récupérer created_users (puisque objects ont maintenant IDs)
+                created_users = [profil.user for profil in profil_objects]
+                
+                # Log audits en batch (un par user)
+                for i, new_user in enumerate(created_users):
+                    audit_log_service.log_action(
+                        user=acting_user,
+                        action=AuditLog.AuditAction.CREATE,
+                        entity_type='User',
+                        entity_id=new_user.id,
+                        request=request,
+                        new_values=audit_batch[i]
+                    )
+                
+                logger.info(f"{len(created_users)} utilisateurs créés en batch par {acting_user.email}.")
+        
+        return {
+            'created_users': created_users,
+            'errors': errors
+        }
+                
 
 # Instance singleton
 user_service = UserService()

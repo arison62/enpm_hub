@@ -13,7 +13,7 @@ export default function DashboardLayout({
   const { user } = useAuthStore();
   useEffect(() => {
     // Seulement les admin et super admin peuvent accéder au dashboard
-    if (user && !["admin", "super_admin"].includes(user.role_systeme)) {
+    if (user && !["admin_site", "super_admin"].includes(user.role_systeme)) {
       router.visit("/home"); // Rediriger vers la page d'accueil
     } else if (!user) {
       router.visit("/login"); // Rediriger vers la page de login

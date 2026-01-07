@@ -1,8 +1,9 @@
 # users/api/schemas.py
 from math import ceil
-from typing import Annotated, Dict, Optional, List
+from typing import Annotated, Dict, Literal, Optional, List
 from ninja import Schema, Field, ModelSchema
-from pydantic import UUID4, EmailStr, field_validator
+from phonenumber_field.phonenumber import PhoneNumber
+from pydantic import UUID4, EmailStr, field_validator, model_validator
 from datetime import datetime
 from core.models import User
 from core.utils.date_formatters import format_linkedin_duration
@@ -243,11 +244,15 @@ class LienReseauSocialUpdate(Schema):
 
 class UserBaseOut(ModelSchema):
     """Schéma base pour User (sans profil)"""
+    telephone: Optional[str] = None
     class Meta:
         model = User
         fields = ['id', 'email', 'role_systeme', 'est_actif', 'last_login', 'created_at', 'updated_at']
         # Exclusion sensible: mot_de_passe, groups, user_permissions
-
+    @staticmethod
+    def resolve_telephone(obj):
+        return str(obj.telephone) if obj.telephone else None
+    
 class UserDetailOut(UserBaseOut):
     """Schéma détail User avec profil base"""
     profil: Optional[ProfilBaseOut] = None
@@ -264,22 +269,43 @@ class UserCompleteOut(UserBaseOut):
 
 class UserCreate(Schema):
     """Schéma création User (public/self-register)"""
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    telephone: Optional[str] = None
     password: Annotated[int, Field(..., min_length=8, description="Mot de passe (min. 8 caractères)")]
     profil: ProfilCreate
+    
+    @model_validator(mode='before')
+    def check_contact_info(cls, values):
+        email = values.get('email')
+        telephone = values.get('telephone')
+        if not email and not telephone:
+            raise ValueError("Au moins un des champs 'email' ou 'telephone' doit être fourni.")
+        return values
+
+    
 
 class UserCreateAdmin(Schema):
     """Schéma création User par admin (password optionnel)"""
-    email: EmailStr
-    password: Optional[str] = Field(..., min_length=8, description="Mot de passe (min. 8 caractères)")
+    email: Optional[EmailStr]
+    telephone: Optional[str]
+    password: Optional[str] = Field(None, min_length=8, description="Mot de passe (min. 8 caractères)")
     role_systeme: str = 'user'
     est_actif: bool = True
-    profil: ProfilCreate
+    profil: Optional[ProfilCreate] = None
 
     @field_validator('role_systeme')
     def validate_role(cls, v):
         if v not in [choice[0] for choice in User.ROLE_SYSTEME_CHOICES]:
             raise ValueError('Rôle système invalide')
+        return v
+
+    @field_validator('telephone')
+    def validate_telephone(cls, v):
+        if v:
+            phone = PhoneNumber.from_string(v, region='CM')  # 'CM' pour Cameroun
+            if not phone.is_valid():
+                raise ValueError("Numéro de téléphone invalide")
+            return str(phone)
         return v
 
 class UserUpdate(ModelSchema):
@@ -322,6 +348,25 @@ class PhotoUploadResponse(Schema):
 class PhotoDeleteResponse(Schema):
     message: str = "Photo supprimée"
 
+# ==========================================
+# SCHÉMAS POUR BULK CREATE USERS
+# ==========================================
+
+class BulkUserCreate(Schema):
+    """Schéma pour la création en bulk d'utilisateurs par admin"""
+    users: List[UserCreateAdmin]
+    mode: Literal['strict', 'skip'] = Field('strict', description="Mode d'exécution: 'strict' (arrête sur erreur) ou 'ignore_errors' (continue malgré erreurs)")
+    batch_size: Optional[int] = Field(100, ge=1, le=1000, description="Taille des batches pour la création en bulk")
+
+class BulkCreateError(Schema):
+    """Schéma pour les erreurs lors de la création en bulk"""
+    index: int
+    error: str
+
+class BulkCreateResponse(Schema):
+    """Schéma de réponse pour la création en bulk"""
+    created_users: List[UserCompleteOut]
+    errors: List[BulkCreateError]
 
 
 
@@ -366,9 +411,6 @@ class UserStatistics(Schema):
 
 class ToggleStatus(Schema):
     est_actif: bool
-
-class SlugUpdate(Schema):
-    slug: str
 
 # ==========================================
 # SCHÉMAS ERREURS (STANDARDISÉS)

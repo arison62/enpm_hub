@@ -246,7 +246,7 @@ export default function ProfileEdit() {
         )
       );
       const response = await axios.post(
-        `/users/experiences/${user.profil.id}/`,
+        `/users/experiences/${user.profil.id}`,
         cleanedNewExp
       );
       if (response.status === 201) {

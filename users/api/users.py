@@ -5,6 +5,8 @@ from django.http import HttpRequest
 from pydantic import UUID4
 from core.models import User
 from users.api.schemas import (
+    BulkCreateResponse,
+    BulkUserCreate,
     ChangePassword, 
     LienReseauSocialCreate, 
     LienReseauSocialOut, 
@@ -29,10 +31,6 @@ from core.services.auth_service import jwt_auth
 logger = logging.getLogger("app")
 
 users_router = Router(tags=["Utilisateurs"])
-
-# ==========================================
-# Configuration de la pagination
-# ==========================================
 
 
 # ==========================================
@@ -80,6 +78,37 @@ def create_user_endpoint(request: HttpRequest, payload: UserCreateAdmin):
     except Exception as e:
         logger.exception("Erreur inattendue lors de la création d'utilisateur")
         return 400, {"detail": "Une erreur est survenue lors de la création."}
+
+@users_router.post(
+    "/bulk",
+    response={201: BulkCreateResponse, 400: MessageResponse, 401: MessageResponse, 403: MessageResponse, 422: ValidationErrorResponse},
+    auth=jwt_auth,
+    summary="Crée plusieurs utilisateurs en bulk",
+    description="Création en bulk d'utilisateurs avec profils. Réservé aux administrateurs. Supporte mode 'strict' ou 'skip'."
+)
+def bulk_create_users_endpoint(request: HttpRequest, payload: BulkUserCreate):
+    """
+    Crée plusieurs utilisateurs avec leurs profils associés en batch.
+    Des mots de passe temporaires sont générés automatiquement.
+    Permissions requises : admin_site ou super_admin
+    """
+    if not is_admin(request):
+        return 403, {"detail": "Action non autorisée. Rôle administrateur requis."}
+    try:
+        result = user_service.bulk_create_users(
+        acting_user=request.auth,  # type: ignore
+        users_data=[user.dict() for user in payload.users],
+        mode=payload.mode,
+        batch_size=payload.batch_size, # type: ignore
+        request=request
+    )
+        return 201, result
+    except ValueError as e:
+        logger.error(f"Erreur création bulk utilisateurs : {str(e)}")
+        return 400, {"detail": str(e)}
+    except Exception as e:
+        logger.exception("Erreur inattendue lors de la création bulk d'utilisateurs")
+        return 400, {"detail": "Une erreur est survenue lors de la création bulk."}
 
 
 @users_router.get(
