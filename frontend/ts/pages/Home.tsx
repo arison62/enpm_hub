@@ -1,3 +1,4 @@
+import { Link } from "@inertiajs/react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -8,7 +9,11 @@ export default function Home() {
         This is the main landing page of the application.
       </p>
       <div>
-        <Button className="mt-6">Get Started</Button>
+        <Button className="mt-6">
+         <Link to="/home">
+          Get Started
+         <Link/>
+        </Button>
       </div>
     </div>
   );
