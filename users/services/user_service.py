@@ -296,7 +296,7 @@ class UserService:
         Returns:
             Tuple (queryset, total_count)
         """
-        queryset = User.objects.select_related('profil').prefetch_related(
+        queryset = User.all_objects.select_related('profil').prefetch_related(
             'profil__liens_reseaux'
             ).prefetch_related(
                 'profil__domaine'

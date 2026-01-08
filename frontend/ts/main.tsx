@@ -4,8 +4,14 @@ import axios from "@/lib/axios";
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { createInertiaApp } from "@inertiajs/react";
-import {Toaster} from  "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import "../main.css";
+
+const queryClient = new QueryClient();
 
 const pages = import.meta.glob("./pages/**/*.tsx");
 
@@ -27,8 +33,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setup({ el, App, props }) {
       createRoot(el).render(
         <StrictMode>
-          <App {...props} />
-          <Toaster position="top-center"/>
+          <QueryClientProvider client={queryClient}>
+            <App {...props} />
+            <Toaster position="top-center" />
+          </QueryClientProvider>
         </StrictMode>
       );
     },
