@@ -32,7 +32,6 @@ export default function DashboardLayout({
       <SidebarInset>
         <SiteHeader />
         {children}
-        <div className="flex flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );
