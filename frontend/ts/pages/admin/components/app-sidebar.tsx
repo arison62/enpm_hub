@@ -1,26 +1,23 @@
-import * as React from "react"
+import * as React from "react";
 import {
-  IconCamera,
-  IconChartBar,
+  IconAffiliate,
+  IconBriefcase,
   IconDashboard,
-  IconDatabase,
-  IconFileAi,
   IconFileDescription,
-  IconFileWord,
+  IconFilePencil,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
-  IconListDetails,
-  IconReport,
   IconSearch,
   IconSettings,
+  IconSpeakerphone,
   IconUsers,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
-import { NavDocuments } from "@/pages/admin/components/nav-documents"
-import { NavMain } from "@/pages/admin/components/nav-main"
-import { NavSecondary } from "@/pages/admin/components/nav-secondary"
-import { NavUser } from "@/pages/admin/components/nav-user"
+import { NavOpportunities } from "@/pages/admin/components/nav-opportunities";
+import { NavMain } from "@/pages/admin/components/nav-main";
+import { NavSecondary } from "@/pages/admin/components/nav-secondary";
+import { NavUser } from "@/pages/admin/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +26,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+import { NavFeeds } from "./nav-feeds";
 
 const data = {
   user: {
@@ -40,76 +38,18 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/admin",
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: IconListDetails,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: IconFolder,
-    },
-    {
-      title: "Team",
-      url: "#",
+      title: "Utilisateurs",
+      url: "/admin/users",
       icon: IconUsers,
     },
-  ],
-  navClouds: [
     {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      title: "Organisations",
+      url: "/admin/organisations",
+      icon: IconAffiliate,
     },
   ],
   navSecondary: [
@@ -129,24 +69,36 @@ const data = {
       icon: IconSearch,
     },
   ],
-  documents: [
+  opportunities: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
+      name: "Stages",
+      url: "admin/internships",
+      icon: IconFolder,
     },
     {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
+      name: "Emplois",
+      url: "admin/jobs",
+      icon: IconBriefcase,
     },
     {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
+      name: "Formations",
+      url: "admin/trainings",
+      icon: IconFileDescription,
     },
   ],
-}
+  feeds: [
+    {
+      name: "Postes",
+      url: "admin/posts",
+      icon: IconFilePencil,
+    },
+    {
+      name: "Annonces",
+      url: "admin/ads",
+      icon: IconSpeakerphone,
+    },
+  ],
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -168,12 +120,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavOpportunities items={data.opportunities} />
+        <NavFeeds items={data.feeds} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
