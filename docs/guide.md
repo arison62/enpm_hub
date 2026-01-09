@@ -564,6 +564,88 @@ urlpatterns = [
 ]
 ```
 
+### 5. Gestion Globale des Erreurs
+
+Pour garantir une expérience cohérente et prévisible, l'API ENSPM Hub utilise un système de gestion globale des exceptions. Toutes les erreurs retournent une réponse JSON standardisée, ce qui simplifie la gestion des erreurs côté client.
+
+La configuration se trouve dans `enspm_hub/api_v1.py` et utilise les décorateurs `@api_v1.exception_handler`.
+
+#### Structure des Réponses d'Erreur
+
+La structure générale pour une erreur est la suivante :
+
+```json
+{
+    "detail": "Message principal de l'erreur."
+}
+```
+
+Pour les erreurs plus complexes comme la validation, des détails supplémentaires peuvent être fournis.
+
+#### Types d'Erreurs Gérées
+
+1.  **Erreur de Validation (`422 Unprocessable Content`)**
+    -   **Déclencheur** : Échec de la validation d'un schéma Pydantic (`*Schema`).
+    -   **Exemple de Réponse** :
+        ```json
+        {
+            "detail": "Erreur de validation.",
+            "errors": [
+                {
+                    "field": "email",
+                    "message": "value is not a valid email address"
+                },
+                {
+                    "field": "password",
+                    "message": "ensure this value has at least 8 characters"
+                }
+            ]
+        }
+        ```
+
+2.  **Ressource Non Trouvée (`404 Not Found`)**
+    -   **Déclencheur** : Levée d'une exception `Http404` (ex: `get_object_or_404`).
+    -   **Exemple de Réponse** :
+        ```json
+        {
+            "detail": "La ressource demandée n'a pas été trouvée."
+        }
+        ```
+
+3.  **Erreur de Serveur (`500 Internal Server Error`)**
+    -   **Déclencheur** : Toute exception non interceptée par les autres gestionnaires.
+    -   **Comportement** :
+        -   En mode `DEBUG=True`, la réponse contient des détails techniques pour faciliter le débogage.
+        -   En mode `DEBUG=False` (production), un message générique est retourné pour ne pas exposer de détails d'implémentation. L'erreur complète est enregistrée dans les logs.
+    -   **Exemple de Réponse (Production)** :
+        ```json
+        {
+            "detail": "Une erreur inattendue est survenue. L'équipe technique a été notifiée."
+        }
+        ```
+
+4.  **Exceptions Métier Personnalisées**
+    -   **Objectif** : Permettre de lever des erreurs spécifiques depuis la couche Service avec des codes de statut HTTP appropriés.
+    -   **Implémentation** : Des classes d'exception personnalisées sont définies dans `core/api/exceptions.py`.
+    -   **Exemple d'utilisation dans un service** :
+        ```python
+        # core/services/some_service.py
+        from core.api.exceptions import PermissionDeniedAPIException
+
+        class SomeService:
+            @staticmethod
+            def some_action(user, resource):
+                if not user.has_permission_for(resource):
+                    # Lève une exception qui sera interceptée par le gestionnaire global
+                    raise PermissionDeniedAPIException("Vous n'êtes pas autorisé à modifier cette ressource.")
+        ```
+    -   **Réponse API (`403 Forbidden`)** :
+        ```json
+        {
+            "detail": "Vous n'êtes pas autorisé à modifier cette ressource."
+        }
+        ```
+
 ---
 
 ## 💼 Couche Service (Logique Métier)
