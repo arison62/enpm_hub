@@ -2,8 +2,9 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
-  PlayCircle,
+  Check,
   StopCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 export const roles =  [
@@ -42,11 +43,15 @@ export const roles_systeme =  [
   }
 ]
 
-export  const statuses = [
+export  const statuses : {
+  value: boolean,
+  label: string,
+  icon: LucideIcon
+}[] = [
   {
     value: true,
     label: "Actif",
-    icon: PlayCircle
+    icon: Check
   },{
     value: false,
     label: "Inactif",

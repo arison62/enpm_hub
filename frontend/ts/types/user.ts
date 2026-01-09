@@ -14,7 +14,6 @@ export type Profil = {
   titre: string | null;
   slug: string | null;
   statut_global: string | null;
-  travailleur: boolean | null;
   annee_sortie: number | null;
   telephone: string | null;
   domaine: string | null;
@@ -48,13 +47,23 @@ export type StatutGlobal =
 // UTILISATEURS
 // ============================================================================
 
+export interface UserOut {
+  id: UUID;
+  email: string;
+  role_systeme: string;
+  est_actif: boolean;
+  last_login: DateTimeString | null;
+  created_at: DateTimeString;
+  updated_at: DateTimeString;
+}
+
+
 export interface ProfilOut {
   id: UUID;
   nom_complet: string;
   matricule: string | null;
   titre: TitreHonorifiqueOut | null;
   statut_global: StatutGlobal;
-  travailleur: boolean;
   annee_sortie: AnneePromotionOut | null;
   telephone: string | null;
   domaine: DomaineOut | null;
@@ -73,7 +82,6 @@ export interface ProfilCreate {
   matricule: string | null;
   titre: string | null;
   statut_global: string;
-  travailleur: boolean;
   annee_sortie: number | null;
   telephone: string | null;
   domaine: string | null;
@@ -81,39 +89,6 @@ export interface ProfilCreate {
   adresse: string | null;
 }
 
-export interface ProfilUpdate {
-  nom_complet?: string | null;
-  matricule?: string | null;
-  titre?: string | null;
-  statut_global?: string | null;
-  travailleur?: boolean | null;
-  annee_sortie?: number | null;
-  telephone?: string | null;
-  domaine?: string | null;
-  adresse?: string | null;
-  bio?: string | null;
-}
-
-export interface UserOut {
-  id: UUID;
-  email: string;
-  role_systeme: string;
-  est_actif: boolean;
-  last_login: DateTimeString | null;
-  created_at: DateTimeString;
-  updated_at: DateTimeString;
-}
-
-export interface UserDetail {
-  id: UUID;
-  email: string;
-  role_systeme: string;
-  est_actif: boolean;
-  last_login: DateTimeString | null;
-  created_at: DateTimeString;
-  updated_at: DateTimeString;
-  profil: ProfilOut;
-}
 
 export interface UserCreateAdmin {
   email: string;
@@ -121,12 +96,6 @@ export interface UserCreateAdmin {
   profil: ProfilCreate;
 }
 
-export interface UserUpdateAdmin {
-  email?: string | null;
-  role_systeme?: string | null;
-  est_actif?: boolean | null;
-  profil?: ProfilUpdate | null;
-}
 
 export interface PhotoUploadResponse {
   message: string;
@@ -146,10 +115,7 @@ export interface ResetPassword {
   new_password: string | null;
 }
 
-export interface PasswordResponse {
-  message: string;
-  temporary_password: string | null;
-}
+
 
 export interface ExperienceProfessionnelleOut {
   id: UUID;
@@ -180,7 +146,6 @@ export interface ProfilComplete {
   matricule: string | null;
   titre: TitreHonorifiqueOut | null;
   statut_global: StatutGlobal;
-  travailleur: boolean;
   annee_sortie: AnneePromotionOut | null;
   telephone: string | null;
   domaine: DomaineOut | null;
@@ -212,4 +177,14 @@ export interface UserComplete {
   created_at: DateTimeString;
   updated_at: DateTimeString;
   profil: ProfilComplete;
+}
+
+export interface UserResponse {
+  items: UserComplete[];
+  meta: {
+    total_items: number;
+    total_pages: number;
+    page: number;
+    page_size: number;
+  };
 }

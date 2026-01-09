@@ -54,7 +54,16 @@ class CustomUserManager(BaseUserManager):
         Profil.objects.create(user=user)
         return user
        
-
+class UserSoftDeleteManager(CustomUserManager, SoftDeleteManager):
+    
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted=False)
+    
+    def create_user(self, email, password=None, **extra_fields):
+        return super().create_user(email, password, **extra_fields)
+    
+    def create_superuser(self, email, password=None, **extra_fields):
+        return super().create_superuser(email, password, **extra_fields)
 
 # ==========================================
 # 2. MODÈLE DE BASE (Abstract)
@@ -546,7 +555,9 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
         related_query_name="user",
     )
 
-    objects = CustomUserManager()
+    objects = UserSoftDeleteManager()
+    all_objects = AllObjectsManager()
+   
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -557,8 +568,8 @@ class User(AbstractBaseUser, PermissionsMixin, ENSPMHubBaseModel):
         db_table = 'users'
 
     def __str__(self):
-        return self.email
-
+        return self.email or str(self.telephone) or f"Utilisateur {self.id}"
+    
     @property
     def is_active(self):
         return self.est_actif and not self.deleted

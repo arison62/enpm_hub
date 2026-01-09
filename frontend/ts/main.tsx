@@ -11,7 +11,13 @@ import {
 } from "@tanstack/react-query";
 import "../main.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const pages = import.meta.glob("./pages/**/*.tsx");
 

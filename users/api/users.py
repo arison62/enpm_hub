@@ -123,6 +123,7 @@ def list_users_endpoint(
     page: int = Query(1, ge=1), # type: ignore
     page_size: int = Query(20, ge=1, le=100) # type: ignore
 ):
+    print(filters)
     users_list, total_count = user_service.list_users(
         filters=filters.dict(exclude_unset=True),
         page=page,
@@ -301,7 +302,7 @@ def restore_user_endpoint(request: HttpRequest, user_id: UUID4):
 # ==========================================
 # Gestion du compte
 # ==========================================
-@users_router.patch(
+@users_router.post(
     "/{user_id}/toggle-status",
     response={200: UserCompleteOut, 401: MessageResponse, 403: MessageResponse, 404: MessageResponse},
     auth=jwt_auth,

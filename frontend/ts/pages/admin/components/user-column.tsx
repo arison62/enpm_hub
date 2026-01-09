@@ -39,7 +39,7 @@ export const columns: ColumnDef<UserComplete>[] = [
       <DataTableColumnHeader column={column} title="Email" />
     ),
     cell: ({ row }) => <div className="w-[80px]">{row.getValue("email")}</div>,
-    enableSorting: false,
+    enableSorting: true,
     enableHiding: false,
   },
   {
@@ -51,8 +51,8 @@ export const columns: ColumnDef<UserComplete>[] = [
     cell: ({ row }) => (
       <div className="w-[80px]">{row.getValue("nom_complet")}</div>
     ),
-    enableSorting: false,
-    enableHiding: false,
+    enableSorting: true,
+    enableHiding: true,
   },
   {
     accessorKey: "role",
@@ -74,9 +74,7 @@ export const columns: ColumnDef<UserComplete>[] = [
         </div>
       );
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
+    enableSorting: false
   },
   {
     accessorKey: "role_systeme",
@@ -97,7 +95,8 @@ export const columns: ColumnDef<UserComplete>[] = [
           <span>{role.label}</span>
         </div>
       )
-    }
+    },
+    enableSorting: false
   },
   {
     accessorKey: "est_actif",
@@ -120,9 +119,7 @@ export const columns: ColumnDef<UserComplete>[] = [
         </div>
       );
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
+    enableSorting: false
   },
   {
     id: "actions",

@@ -32,14 +32,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 
 interface DataTableConfig<TData> {
-  searchColumnId?: string
+  searchId: string
   searchPlaceholder?: string;
   filters: Array<{
     columnId: keyof TData & string;
     title: string;
     options: {
       label: string;
-      value: string;
+      value: string | boolean;
       icon?: LucideIcon;
     }[];
   }>;
@@ -81,6 +81,7 @@ export function DataTable<TData, TValue>({
   //   );
   //   const [sorting, setSorting] = React.useState<SortingState>([]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: paginatedDataTable.data,
     columns,
@@ -134,7 +135,7 @@ export function DataTable<TData, TValue>({
       <DataTableToolbar
         table={table}
         search={{
-          columnId: config.searchColumnId,
+          filterId: config.searchId,
           placeholder: config.searchPlaceholder,
         }}
         filters={config.filters}

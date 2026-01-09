@@ -75,7 +75,7 @@ class UserAdmin(BaseUserAdmin):
 
     inlines = [ProfilInline]
 
-    actions = ['activate_users', 'deactivate_users', 'soft_delete_users', 'restore_users']
+    actions = ['activate_users', 'deactivate_users', 'soft_delete_users', 'restore_users', 'delete_users']
 
     fieldsets = (
         (_('Informations de connexion'), {
@@ -143,6 +143,17 @@ class UserAdmin(BaseUserAdmin):
             count += 1
         self.message_user(request, f'{count} utilisateur(s) restauré(s).')
 
+    @admin.action(description='Supprimer permanentement les utilisateurs')
+    def delete_users(self, request, queryset):
+        count = 0
+        for user in queryset.filter(deleted=True):
+            print("User to delete : ", user)
+            user.delete()
+            if hasattr(user, 'profil'):
+                user.profil.delete()
+            count += 1
+        self.message_user(request, f'{count} utilisateur(s) supprimé(s) permanentement.')
+        
     # ======================================
     # Afficher tous les users (y compris soft-deleted)
     # ======================================
@@ -151,7 +162,7 @@ class UserAdmin(BaseUserAdmin):
 
     # Désactiver suppression permanente
     def has_delete_permission(self, request, obj=None):
-        return False
+        return request.user.is_superuser
 
 
 # ==========================================
@@ -212,7 +223,7 @@ class ProfilAdmin(admin.ModelAdmin):
         return Profil.all_objects.select_related('user').all()
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return request.user.is_superuser
 
 
 # ==========================================

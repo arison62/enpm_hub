@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "./data-table-view-options";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
 
-
 import type { LucideIcon } from "lucide-react";
 
 export interface FacetedOption {
   label: string;
-  value: string;
+  value: string | boolean;
   icon?: LucideIcon;
 }
 
@@ -21,15 +20,14 @@ export interface FacetedFilterConfig<TData> {
   options: FacetedOption[];
 }
 
-export interface SearchConfig<TData> {
-  columnId: keyof TData & string | undefined;
+export interface SearchConfig {
+  filterId: string | undefined;
   placeholder?: string;
 }
 
-
 interface DataTableToolbarProps<TData> {
   table: Table<TData>;
-  search?: SearchConfig<TData>;
+  search?: SearchConfig;
   filters?: FacetedFilterConfig<TData>[];
 }
 
@@ -44,19 +42,21 @@ export function DataTableToolbar<TData>({
     <div className="flex items-center justify-between">
       <div className="flex flex-1 items-center space-x-2">
         {/* Search */}
-        {search && search.columnId && (
+
+        {search?.filterId && (
           <>
-            {(() => {
-              const column = table.getColumn(search.columnId);
-              return column ? (
-                <Input
-                  placeholder={search.placeholder ?? "Search..."}
-                  value={(column.getFilterValue() as string) ?? ""}
-                  onChange={(e) => column.setFilterValue(e.target.value)}
-                  className="h-8 w-[150px] lg:w-[250px]"
-                />
-              ) : null;
-            })()}
+            <Input
+              placeholder={search.placeholder ?? "Search..."}
+              onChange={(e) => {
+                table.setColumnFilters([
+                  {
+                    id: search.filterId!,
+                    value: e.target.value,
+                  },
+                ]);
+              }}
+              className="h-8 w-[150px] lg:w-[250px]"
+            />
           </>
         )}
         {/*  Faceted filters */}

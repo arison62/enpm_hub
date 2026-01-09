@@ -296,7 +296,7 @@ class UserService:
         Returns:
             Tuple (queryset, total_count)
         """
-        queryset = User.all_objects.select_related('profil').prefetch_related(
+        queryset = User.objects.select_related('profil').prefetch_related(
             'profil__liens_reseaux'
             ).prefetch_related(
                 'profil__domaine'
@@ -314,24 +314,34 @@ class UserService:
                     Q(profil__nom_complet__icontains=search) |
                     Q(profil__matricule__icontains=search) |
                     Q(profil__telephone__icontains=search) |
-                    Q(profil__domaine__icontains=search)
+                    Q(profil__bio__icontains=search)
                 )
             
             # Filtres exacts
+            
             if role := filters.get('role_systeme'):
-                queryset = queryset.filter(role_systeme=role)
+                if isinstance(role, list):
+                    queryset = queryset.filter(role_systeme__in=role)
+                else:   
+                    queryset = queryset.filter(role_systeme=role)
             
             if statut := filters.get('statut_global'):
-                queryset = queryset.filter(profil__statut_global=statut)
+                if isinstance(statut, list):
+                    queryset = queryset.filter(profil__statut_global__in=statut)
+                else:
+                    queryset = queryset.filter(profil__statut_global=statut)
             
-            if 'est_actif' in filters:
-                queryset = queryset.filter(est_actif=filters['est_actif'])
+            if est_actif := filters.get('est_actif'):
+                if isinstance(est_actif, list):
+                    queryset = queryset.filter(est_actif__in=est_actif)
+                else:
+                    queryset = queryset.filter(est_actif=filters['est_actif'])
             
-            if 'travailleur' in filters:
-                queryset = queryset.filter(profil__travailleur=filters['travailleur'])
-            
-            if 'pays' in filters:
-                queryset = queryset.filter(profil__pays__name=filters['pays'])
+            if pays := filters.get('pays'):
+                if isinstance(pays, list):
+                    queryset = queryset.filter(profil__pays__name__in=pays)
+                else:
+                    queryset = queryset.filter(profil__pays__name=filters['pays'])
         
         total_count = queryset.count()
         start = (page - 1) * page_size

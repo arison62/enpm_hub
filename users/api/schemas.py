@@ -1,5 +1,4 @@
 # users/api/schemas.py
-from math import ceil
 from typing import Annotated, Dict, Literal, Optional, List
 from ninja import Schema, Field, ModelSchema
 from phonenumber_field.phonenumber import PhoneNumber
@@ -11,7 +10,7 @@ from users.models import ExperienceProfessionnelle, Profil, LienReseauSocialProf
 from core.api.schemas import PaginationMetaSchema
 from core.api.schemas import (
     AnneePromotionSimple, DomaineSimple, TitreHonorifiqueSimple,
-    SecteurActiviteSimple, DeviseSimple, ReseauSocialSimple
+    ReseauSocialSimple
 )
 
 # ==========================================
@@ -390,11 +389,12 @@ class UserListResponse(Schema):
 # SCHÉMAS FILTRES ET STATISTIQUES
 # ==========================================
 
+
 class UserFilter(Schema):
-    search: Optional[str] = None  # Nom, email, matricule, etc.
-    role_systeme: Optional[str] = None
-    statut_global: Optional[str] = None
-    est_actif: Optional[bool] = None
+    search: Optional[str] = None
+    role_systeme: Optional[List[str]] = Field(None, description="Rôle système")
+    statut_global: Optional[List[str]] = Field(None, description="Statut global")
+    est_actif: Optional[List[bool]] = Field(None, description="Est actif")
 
 
 class UserStatistics(Schema):

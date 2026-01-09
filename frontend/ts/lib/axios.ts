@@ -1,4 +1,5 @@
 // frontend/lib/axios.ts
+import qs from "qs";
 import Axios from "axios";
 import { authStore } from "@/stores/authStore";
 
@@ -8,6 +9,8 @@ export interface ApiErrorResponse {
 
 const axios = Axios.create({
   baseURL: "/api/v1",
+  paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat' }),
+  
 });
 
 axios.interceptors.request.use((config) => {
