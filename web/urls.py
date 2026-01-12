@@ -15,6 +15,7 @@ urlpatterns = [
     path('admin', include(admin_urls)),
     path('home', HomeView.as_view(), name='home'),
     path('network', NetworkView.as_view(), name='network'),
+    path('network/<slug:slug>', NetworkView.as_view(), name='network_profile'),
     path('opportunities', OpportunitiesView.as_view(), name='opportunities'),
     path('chat', ChatView.as_view(), name="chat"),
     path('internships', InternshipsView.as_view(), name="internships"),

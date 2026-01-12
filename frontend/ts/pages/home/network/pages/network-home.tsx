@@ -30,6 +30,7 @@ import type { OrganisationOut } from "@/types/organisation";
 import { cn } from "@/lib/utils";
 import { useInternalNav } from "@/contexts/internal-nav-context";
 import NetworkFormPage from "./network-form-page";
+import { router } from "@inertiajs/react";
 
 export default function NetworkHome() {
   const [search, setSearch] = useState("");
@@ -177,7 +178,9 @@ export default function NetworkHome() {
                   <OrganisationCard
                     key={org.id}
                     org={org}
-                    onClick={(slug) => console.log(slug)}
+                    onClick={()=>{
+                      router.visit(`/network/${org.slug}`)
+                    }}
                     follow={() => console.log("follow")}
                   />
                 ))

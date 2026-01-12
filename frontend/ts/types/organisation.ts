@@ -44,6 +44,7 @@ export interface MembreOrganisationOut {
   date_joindre: DateString;
 }
 
+
 export interface AbonnementOrganisationOut {
   profil: UUID;
   organisation: UUID;

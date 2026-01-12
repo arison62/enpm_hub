@@ -158,7 +158,7 @@ class OrganisationService:
         if acting_user and acting_user.is_authenticated:
             # Vérifier si l'utilisateur a un profil
             try:
-                profil = acting_user.profil
+                profil = acting_user.profil # type: ignore
                 queryset = queryset.annotate(
                     est_suivi=Exists(
                         AbonnementOrganisation.objects.filter(
@@ -249,6 +249,7 @@ class OrganisationService:
 
     @staticmethod
     def get_organisation_by_id(
+        acting_user,
         org_id: UUID,
         include_relations: bool = True
     ) -> Optional[Organisation]:
@@ -264,7 +265,28 @@ class OrganisationService:
         """
         try:
             queryset = Organisation.objects
-            
+            if acting_user and acting_user.is_authenticated:
+                # Vérifier si l'utilisateur a un profil
+                try:
+                    profil = acting_user.profil
+                    queryset = queryset.annotate(
+                            est_suivi=Exists(
+                                AbonnementOrganisation.objects.filter(
+                                    organisation=OuterRef('pk'),
+                                    profil=profil
+                                )
+                            )
+                        )
+                except AttributeError:
+                    # L'utilisateur n'a pas de profil
+                    queryset = queryset.annotate(
+                        est_suivi=Value(False, output_field=BooleanField())
+                    )
+                else:
+                    # Utilisateur non authentifié
+                    queryset = queryset.annotate(
+                        est_suivi=Value(False, output_field=BooleanField())
+                    )
             if include_relations:
                 queryset = queryset.select_related(
                     'secteur_activite',
@@ -276,8 +298,8 @@ class OrganisationService:
                     ),
                     'abonnes'
                 ).annotate(
-                    membres_count=Count('membres', filter=Q(membres__est_actif=True)),
-                    abonnes_count=Count('abonnes')
+                    nombres_membres=Count('membres', filter=Q(membres__est_actif=True)),
+                    nombres_abonnes=Count('abonnes')
                 )
             
             return queryset.get(id=org_id, statut='active', deleted=False)
@@ -286,7 +308,11 @@ class OrganisationService:
             return None
 
     @staticmethod
-    def get_organisation_by_slug(slug: str) -> Optional[Organisation]:
+    def get_organisation_by_slug(
+        slug: str, 
+        include_relations: bool = True,
+        acting_user = None, 
+        ) -> Optional[Organisation]:
         """
         Récupère une organisation par son slug.
         
@@ -297,21 +323,50 @@ class OrganisationService:
             Organisation ou None
         """
         try:
-            return Organisation.objects.select_related(
-                'secteur_activite',
-                'secteur_activite__categorie_parent',
-                ).prefetch_related(
-                Prefetch(
-                    'membres',
-                    queryset=MembreOrganisation.objects.filter(est_actif=True)
-                ),
-                'abonnes'
-            ).annotate(
-                membres_count=Count('membres', filter=Q(membres__est_actif=True)),
-                abonnes_count=Count('abonnes')
-            ).get(slug=slug, statut='active', deleted=False)
+            queryset = Organisation.objects
+            if acting_user and acting_user.is_authenticated:
+                # Vérifier si l'utilisateur a un profil
+                try:
+                    profil = acting_user.profil
+                
+                    queryset = queryset.annotate(
+                            est_suivi=Exists(
+                                AbonnementOrganisation.objects.filter(
+                                    organisation=OuterRef('pk'),
+                                    profil=profil
+                                )
+                            )
+                        )
+                    
+                except AttributeError:
+                    # L'utilisateur n'a pas de profil
+                    queryset = queryset.annotate(
+                        est_suivi=Value(False, output_field=BooleanField())
+                    )
+            else:
+                # Utilisateur non authentifié
+                queryset = queryset.annotate(
+                    est_suivi=Value(False, output_field=BooleanField())
+                )
+            if include_relations:
+                print("include_relations")
+                queryset = queryset.select_related(
+                    'secteur_activite',
+                    'secteur_activite__categorie_parent',
+                    ).prefetch_related(
+                    Prefetch(
+                        'membres',
+                        queryset=MembreOrganisation.objects.filter(est_actif=True)
+                    ),
+                    'abonnes'
+                ).annotate(
+                    nombre_abonnes=Count('membres', filter=Q(membres__est_actif=True)),
+                    nombre_membres=Count('abonnes')
+                )
+            
+            return queryset.get(slug=slug, statut='active', deleted=False)
         except Organisation.DoesNotExist:
-            logger.warning(f"Organisation non trouvée avec le slug: {slug}")
+            logger.warning(f"Organisation non trouvée avec l'ID: {slug}")
             return None
 
     @staticmethod
@@ -585,7 +640,7 @@ class OrganisationService:
             {
                 'id': str(org.id),
                 'nom': org.nom_organisation,
-                'membres_count': org.membres_count
+                'membres_count': org.membres_count # type: ignore
             }
             for org in top_orgs
         ]
