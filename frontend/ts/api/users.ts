@@ -18,7 +18,7 @@ export const useGetUsers = ({
   columnFilters: ColumnFiltersState;
   pagination: PaginationState;
 }) => {
-  const { data, isLoading, error } = useQuery<UserResponse, AxiosError>({
+  const { data, isLoading, error, refetch } = useQuery<UserResponse, AxiosError>({
     initialData: {
       items: [],
       meta: { total_items: 0, total_pages: 0, page: 0, page_size: 0 },
@@ -41,7 +41,7 @@ export const useGetUsers = ({
       return res.data;
     },
   });
-  return { data, isLoading, error };
+  return { data, isLoading, error, refetch };
 };
 
 // Fonction pour désactiver/activer un utilisateur
