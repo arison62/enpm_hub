@@ -30,7 +30,7 @@ function UsersPage() {
     300
   );
   
-  const {isLoading, data, refetch} = useGetUsers({columnFilters: debounceColumnFilters, pagination})
+  const {isLoading, data, error, refetch} = useGetUsers({columnFilters: debounceColumnFilters, pagination})
   const handleUserCreated = () => {
     refetch()
     setShowCreateDialog(false)
@@ -62,7 +62,7 @@ function UsersPage() {
           </Button>
         </div>
       </div>
-    
+      {error && <p>{error.message}</p>}
       <DataTable
         paginatedDataTable={{
           data: data.items,

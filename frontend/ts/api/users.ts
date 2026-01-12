@@ -9,7 +9,7 @@ import type {
 
 import type { UserResponse } from "@/types/user";
 import type { AxiosError } from "axios";
-import axios from "../lib/axios";
+import axios from "@/lib/axios";
 
 export const useGetUsers = ({
   columnFilters,
@@ -35,7 +35,7 @@ export const useGetUsers = ({
         est_actif: columnFilters.find((filter) => filter.id === "est_actif")
           ?.value,
       };
-      const res = await axios.get("/users", {
+      const res = await axios.get("/users/", {
         params: params,
       });
       return res.data;
