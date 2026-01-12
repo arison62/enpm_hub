@@ -92,6 +92,7 @@ export interface ProfilCreate {
 
 export interface UserCreateAdmin {
   email: string;
+  telephone: string | null;
   role_systeme: string;
   profil: ProfilCreate;
 }

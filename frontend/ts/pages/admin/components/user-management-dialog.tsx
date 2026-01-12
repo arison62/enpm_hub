@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { Upload, UserPlus, Check, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -26,7 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
+import axios from "@/lib/axios";
+import { AxiosError } from "axios";
 import type { UserCreateAdmin } from "@/types/user";
+import { Spinner } from "@/components/ui/spinner";
 
 interface ColumnMapping {
   [key: string]: string;
@@ -35,7 +40,6 @@ interface ColumnMapping {
 interface ImportedUser {
   [key: string]: string;
 }
-
 
 interface UserManagementDialogsProps {
   showCreateDialog: boolean;
@@ -46,9 +50,8 @@ interface UserManagementDialogsProps {
   onUsersImported: () => void;
 }
 
-
-
 const CreateUserForm = ({ onSubmit, onCancel }: any) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     telephone: "",
@@ -75,10 +78,12 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsLoading(true);
     if (validateForm()) {
       const userData: UserCreateAdmin = {
         email: formData.email,
+        telephone: formData.telephone,
         role_systeme: formData.role_systeme,
         profil: {
           nom_complet: formData.nom_complet,
@@ -93,6 +98,7 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
         },
       };
       onSubmit(userData);
+      setIsLoading(false);
     }
   };
 
@@ -149,7 +155,7 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="role">Niveau d'accès</Label>
+        <Label htmlFor="role_systeme">Niveau d'accès</Label>
         <Select
           value={formData.role_systeme}
           onValueChange={(value) =>
@@ -162,14 +168,13 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
           <SelectContent>
             <SelectItem value="user">Utilisateur</SelectItem>
             <SelectItem value="admin_site">Administrateur</SelectItem>
-            <SelectItem value="super_admin">Modérateur</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="role">Type compte</Label>
+        <Label htmlFor="status_global">Type compte</Label>
         <Select
-          value={formData.role_systeme}
+          value={formData.status_global}
           onValueChange={(value) =>
             setFormData({ ...formData, status_global: value })
           }
@@ -184,9 +189,7 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
             <SelectItem value="personnel_admin">
               Personnel d'administration
             </SelectItem>
-            <SelectItem value="partenaire">
-              Partenaire
-            </SelectItem>
+            <SelectItem value="partenaire">Partenaire</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -196,8 +199,17 @@ const CreateUserForm = ({ onSubmit, onCancel }: any) => {
           Annuler
         </Button>
         <Button onClick={handleSubmit}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Créer l'utilisateur
+          {isLoading ? (
+            <>
+              <Spinner className="w-4 h-4" />
+              Création en cours
+            </>
+          ) : (
+            <>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Créer l'utilisateur{" "}
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -270,8 +282,39 @@ const ColumnMappingForm = ({ headers, onSubmit, onCancel }: any) => {
 };
 
 const PreviewUsers = ({ users, onConfirm, onCancel }: any) => {
+  const [isLoading, setIsLoading] = useState(false);
   const validUsers = users.filter((u: any) => u.email || u.telephone);
-
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case "etudiant":
+        return "Etudiant";
+      case "alumni":
+        return "Alumni";
+      case "enseignant":
+        return "Enseignant";
+      case "personnel_admin":
+        return "Personnel d'administration";
+      case "partenaire":
+        return "Partenaire";
+      default:
+        return null;
+    }
+  };
+  const formatRole = (role: string) => {
+    switch (role) {
+      case "user":
+        return "Utilisateur";
+      case "admin_site":
+        return "Administrateur";
+      default:
+        return null;
+    }
+  };
+  const handleConfirm = async () => {
+    setIsLoading(true);
+    await onConfirm(validUsers);
+    setIsLoading(false);
+  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -308,8 +351,12 @@ const PreviewUsers = ({ users, onConfirm, onCancel }: any) => {
                     <TableCell>{user.email || "-"}</TableCell>
                     <TableCell>{user.telephone || "-"}</TableCell>
                     <TableCell>{user.nom_complet || "-"}</TableCell>
-                    <TableCell>{user.role_systeme || "-"}</TableCell>
-                    <TableCell>{user.status_global || "-"}</TableCell>
+                    <TableCell>
+                      {formatRole(user.role_systeme) || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {formatStatus(user.status_global) || "-"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -323,11 +370,20 @@ const PreviewUsers = ({ users, onConfirm, onCancel }: any) => {
           Annuler
         </Button>
         <Button
-          onClick={() => onConfirm(validUsers)}
-          disabled={validUsers.length === 0}
+          onClick={() => handleConfirm()}
+          disabled={validUsers.length === 0 || isLoading}
         >
-          <Check className="mr-2 h-4 w-4" />
-          Importer {validUsers.length} utilisateur(s)
+          {isLoading ? (
+            <>
+              <Spinner className="w-4 h-4" />
+              Importation en cours
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              Importer {validUsers.length} utilisateur(s)
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -404,7 +460,7 @@ export const UserManagementDialogs: React.FC<UserManagementDialogsProps> = ({
       }
     };
     // reader.readAsBinaryString(file);
-    reader.readAsArrayBuffer(file)
+    reader.readAsArrayBuffer(file);
   };
 
   const handleMappingSubmit = (mapping: ColumnMapping) => {
@@ -412,8 +468,9 @@ export const UserManagementDialogs: React.FC<UserManagementDialogsProps> = ({
       const user: any = {
         email: "",
         telephone: "",
+        role_systeme: "user",
+        status_global: "etudiant",
         nom_complet: "",
-        role_systeme: "utilisateur",
       };
 
       Object.entries(mapping).forEach(([header, attribute]) => {
@@ -431,24 +488,45 @@ export const UserManagementDialogs: React.FC<UserManagementDialogsProps> = ({
 
   const handleCreateUser = async (userData: UserCreateAdmin) => {
     try {
-      // TODO: Remplacer par votre appel API
-      // await createUserAPI(userData);
-      console.log("Creating user:", userData);
+      await axios.post("/users/", userData);
+      toast.success("Utilisateur créé avec succès");
       onUserCreated();
     } catch (error) {
+      if (error instanceof AxiosError) {
+        const errorMsg =
+          error.response?.data?.detail ||
+          "Une erreur s'est produite lors de la mise à jour.";
+        toast.error(errorMsg);
+      }
       console.error("Error creating user:", error);
     }
   };
 
   const handleImportUsers = async (users: any[]) => {
     try {
-      // TODO: Remplacer par votre appel API
-      // await bulkCreateUsersAPI(users);
-      console.log("Importing users:", users);
+      const usersData = users.map((user) => ({
+        email: user.email != "" ? user.email : null,
+        telephone: user.telephone != "" ? user.telephone : null,
+        role_systeme: user.role_systeme,
+        profil: {
+          nom_complet: user.nom_complet,
+          statut_global: user.status_global,
+        },
+      }));
+
+      await axios.post("/users/bulk", {
+        users: usersData,
+      });
+      toast.success("Utilisateurs importés avec succès");
       onUsersImported();
       resetImport();
     } catch (error) {
-      console.error("Error importing users:", error);
+      if (error instanceof AxiosError) {
+        const errorMsg =
+          error.response?.data?.detail ||
+          "Une erreur s'est produite lors de l'importation des utilisateurs.";
+        toast.error(errorMsg);
+      }
     }
   };
 

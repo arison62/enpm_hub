@@ -123,7 +123,6 @@ def list_users_endpoint(
     page: int = Query(1, ge=1), # type: ignore
     page_size: int = Query(20, ge=1, le=100) # type: ignore
 ):
-    print(filters)
     users_list, total_count = user_service.list_users(
         filters=filters.dict(exclude_unset=True),
         page=page,

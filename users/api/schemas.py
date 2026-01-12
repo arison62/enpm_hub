@@ -285,8 +285,8 @@ class UserCreate(Schema):
 
 class UserCreateAdmin(Schema):
     """Schéma création User par admin (password optionnel)"""
-    email: Optional[EmailStr]
-    telephone: Optional[str]
+    email: Optional[EmailStr] = Field(None, description="Adresse email de l'utilisateur")
+    telephone: Optional[str] = Field(None, description="Numéro de téléphone de l'utilisateur")
     password: Optional[str] = Field(None, min_length=8, description="Mot de passe (min. 8 caractères)")
     role_systeme: str = 'user'
     est_actif: bool = True
