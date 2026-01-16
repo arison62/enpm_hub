@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, Briefcase, MapPin } from "lucide-react";
 
 import { useInternalNav } from "@/contexts/internal-nav-context";
-import ProfileEdit from "../pages/profile-edit";
+import ProfileEdit from "../../profile/pages/profile-edit";
 import type { UserComplete } from "@/types/user";
 
 export const ProfileHeader = ({

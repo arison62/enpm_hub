@@ -19,6 +19,12 @@ export interface AnneePromotionOut {
   ordre_affichage: number;
 }
 
+export interface DeviseSimple {
+  id: UUID;
+  code: string;
+  nom: string;
+  symbole: string;}
+
 export interface DomaineOut {
   id: UUID;
   nom: string;

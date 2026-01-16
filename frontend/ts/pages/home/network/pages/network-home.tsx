@@ -19,11 +19,11 @@ import {
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 
-import { OrganisationCard } from "../components/organisation-card";
+import { OrganisationCard } from "../../components/network/organisation-card";
 import {
   OrganisationCardSkeleton,
   SidebarSkeleton,
-} from "../components/organisation-skeleton";
+} from "../../components/network/organisation-skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import axios from "@/lib/axios";
 import type { OrganisationOut } from "@/types/organisation";

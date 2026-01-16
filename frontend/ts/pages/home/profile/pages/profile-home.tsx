@@ -1,6 +1,6 @@
 import { Deferred, usePage } from "@inertiajs/react";
-import { ProfileContent } from "../components/profile-content";
-import { ProfileSkeleton } from "../components/profile-skeleton";
+import { ProfileContent } from "../../components/profile/profile-content";
+import { ProfileSkeleton } from "../../components/profile/profile-skeleton";
 import type { UserComplete } from "@/types/user";
 
 interface PageProps {
